@@ -9,6 +9,8 @@ export function isValidGtin(value: string): boolean {
   return (10 - (sum % 10)) % 10 === expected;
 }
 
+export const validateGtinCheckDigit = isValidGtin;
+
 export function normaliseGtin(value: string): string | null {
   const normalised = value.replace(/\s+/g, "");
   return isValidGtin(normalised) ? normalised : null;

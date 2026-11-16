@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { normaliseGtin } from "../../domain/rules/gtin";
 import { classifyPayload, type PayloadClass } from "../../domain/rules/payloadClassifier";
+import { parseGs1Payload } from "../../domain/rules/gs1Parser";
 import type { ProductCandidate, ConfirmedLabel } from "../../domain/entities/food";
 import { createConfirmedLabel } from "../../domain/contracts/confirmedLabel";
 import {
@@ -12,10 +13,20 @@ import {
   decodeBarcodeFromImageData
 } from "../../adapters/barcode/barcodeService";
 import {
-  findProductByGtin,
   VERIFIED_INDIAN_CATALOG,
   type VerifiedFoodProduct
 } from "../../domain/entities/catalogData";
+import { LocalOcrAdapter } from "../../adapters/ocr/localOcrAdapter";
+import {
+  EvidenceResolver,
+  type Observation,
+  type ResolvedEvidenceState
+} from "../../domain/services/evidenceResolver";
+import {
+  rankCandidates,
+  validateConfirmedLabelGate,
+  type RankedCandidate
+} from "../../domain/services/candidateMatcher";
 import { requestCameraStream, stopCameraStream } from "../../adapters/camera/camera";
 import { putRecord } from "../../adapters/storage/database";
 import type { PantryEvent } from "../../domain/entities/pantry";
@@ -34,6 +45,8 @@ import {
   Layers,
   ChevronRight,
   ShieldCheck,
+  AlertTriangle,
+  FileText,
   X
 } from "lucide-react";
 
@@ -47,7 +60,20 @@ export function SmartScan({
   const [activeMode, setActiveMode] = useState<"camera" | "upload" | "manual">("manual");
   const [rawInput, setRawInput] = useState(initialGtin || "");
   const [candidate, setCandidate] = useState<ProductCandidate | null>(null);
+
+  // S2 Evidence & Candidate Matcher state
+  const [ocrAdapter] = useState(() => new LocalOcrAdapter({ useSimulated: true }));
+  const [observations, setObservations] = useState<Observation[]>([]);
+  const [evidenceState, setEvidenceState] = useState<ResolvedEvidenceState | null>(null);
+  const [rankedCandidates, setRankedCandidates] = useState<RankedCandidate[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<RankedCandidate | null>(null);
   const [matchedProduct, setMatchedProduct] = useState<VerifiedFoodProduct | null>(null);
+
+  // Multi-panel guided capture state
+  const [capturedPanels, setCapturedPanels] = useState<string[]>(["front", "ingredients", "allergen_declaration", "nutrition"]);
+  const [activePanelInput, setActivePanelInput] = useState<string | null>(null);
+  const [panelDraftText, setPanelDraftText] = useState("");
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
 
   // Camera state
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -67,16 +93,10 @@ export function SmartScan({
     domainPreview: string;
   } | null>(null);
 
-  // Guided Panel Checklist
-  const [capturedPanels, setCapturedPanels] = useState<string[]>([
-    "ingredients",
-    "allergen_declaration",
-    "nutrition"
-  ]);
-
   // Physical Pack Confirmation Inputs
   const [physicalIdentity, setPhysicalIdentity] = useState("");
   const [labelVersion, setLabelVersion] = useState("Batch / Formulation 2026");
+  const [userHasCheckedPack, setUserHasCheckedPack] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   // Analysis result
@@ -92,7 +112,7 @@ export function SmartScan({
   useEffect(() => {
     if (initialGtin) {
       setRawInput(initialGtin);
-      resolveCandidate(initialGtin);
+      resolveInitialCandidate(initialGtin);
     }
   }, [initialGtin]);
 
@@ -203,7 +223,7 @@ export function SmartScan({
       } else {
         // Fallback: search product catalog or prompt manual
         setErrorMessage("No clear barcode found in the image. You can confirm product identity below.");
-        resolveCandidate("Uploaded Photo Candidate");
+        resolveInitialCandidate("Uploaded Photo Candidate");
       }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Error reading image file.");
@@ -232,31 +252,91 @@ export function SmartScan({
       setQrPayloadInfo(null);
     }
 
-    resolveCandidate(rawCode);
+    resolveInitialCandidate(rawCode);
   }
 
-  function resolveCandidate(inputStr: string) {
+  // Helper to record an observation and recalculate candidate rankings
+  function applyObservations(newObsList: Observation[]) {
+    const resolver = new EvidenceResolver(newObsList);
+    const resolved = resolver.resolve();
+    const ranked = rankCandidates(resolved, VERIFIED_INDIAN_CATALOG);
+
+    setObservations(newObsList);
+    setEvidenceState(resolved);
+    setRankedCandidates(ranked);
+
+    const topCandidate = ranked[0] || null;
+    setSelectedCandidate(topCandidate);
+    setMatchedProduct(topCandidate?.candidate || null);
+
+    if (topCandidate?.candidate) {
+      setPhysicalIdentity(`${topCandidate.candidate.brand} ${topCandidate.candidate.productName}`);
+    }
+  }
+
+  function resolveInitialCandidate(inputStr: string) {
     setErrorMessage("");
     setConfirmedLabel(null);
     setAnalysisResult(null);
 
     const clean = inputStr.trim();
-    const gtin = normaliseGtin(clean);
-    const catalogMatch = gtin ? findProductByGtin(gtin) : undefined;
+    const gs1 = parseGs1Payload(clean);
+    const initialObsList: Observation[] = [];
 
-    setMatchedProduct(catalogMatch || null);
+    if (gs1.isValid && gs1.gtin) {
+      // 1. GS1 Parser Observation
+      initialObsList.push({
+        observationId: `obs-gs1-${Date.now()}`,
+        source: "gs1",
+        timestamp: new Date().toISOString(),
+        rawPayload: clean,
+        confidence: 1.0,
+        detectorInfo: { name: "GS1-Syntax-Parser", version: "v13.5" },
+        parsedFields: {
+          gtin: gs1.gtin,
+          batchOrLot: gs1.batchOrLot,
+          productionDate: gs1.productionDate,
+          bestBeforeDate: gs1.bestBeforeDate,
+          expirationDate: gs1.expirationDate,
+        },
+        warnings: gs1.errors,
+      });
+    } else {
+      const gtin = normaliseGtin(clean);
+      if (gtin) {
+        // 2. Barcode Symbology Observation
+        initialObsList.push({
+          observationId: `obs-barcode-${Date.now()}`,
+          source: "barcode",
+          timestamp: new Date().toISOString(),
+          rawPayload: clean,
+          confidence: 1.0,
+          detectorInfo: { name: "ZXing-WASM", version: "2.2.0" },
+          parsedFields: { gtin },
+          warnings: [],
+        });
+      } else {
+        // 3. Manual / Text Query Observation
+        initialObsList.push({
+          observationId: `obs-manual-${Date.now()}`,
+          source: "manual",
+          timestamp: new Date().toISOString(),
+          rawPayload: clean,
+          confidence: 0.9,
+          detectorInfo: { name: "ManualEntry" },
+          parsedFields: { productName: clean },
+          warnings: [],
+        });
+      }
+    }
 
-    const displayName = catalogMatch
-      ? `${catalogMatch.brand} - ${catalogMatch.productName} (${catalogMatch.packSize})`
-      : gtin
-      ? `GTIN Candidate: ${gtin}`
-      : clean;
+    applyObservations(initialObsList);
 
     const cand: ProductCandidate = {
       candidateId: crypto.randomUUID(),
-      identifier: gtin ?? undefined,
-      identifierType: gtin ? "gtin" : "text",
-      displayName,
+      identifier: gs1.gtin || normaliseGtin(clean) || undefined,
+      identifierType: gs1.gtin || normaliseGtin(clean) ? "gtin" : "text",
+      displayName: clean,
       status: "candidate",
       provenance: [
         activeMode === "camera"
@@ -270,12 +350,70 @@ export function SmartScan({
     };
 
     setCandidate(cand);
-    setPhysicalIdentity(catalogMatch ? `${catalogMatch.brand} ${catalogMatch.productName}` : displayName);
   }
 
-  // User confirmation checkpoint
+  // Multi-panel OCR Ingestion
+  async function handleOcrPanelSubmit(panelId: string) {
+    if (!panelDraftText.trim()) return;
+
+    setIsOcrProcessing(true);
+    try {
+      const panelType =
+        panelId === "front"
+          ? "front"
+          : panelId === "ingredients"
+          ? "ingredients"
+          : panelId === "allergen_declaration"
+          ? "allergen_statement"
+          : panelId === "nutrition"
+          ? "nutrition_table"
+          : "dates_batch";
+
+      const ocrRes = await ocrAdapter.recognizePanel(panelDraftText, panelType);
+
+      const sourceTag = `ocr_${panelType}` as Observation["source"];
+      const newObs: Observation = {
+        observationId: `obs-${sourceTag}-${Date.now()}`,
+        source: sourceTag,
+        timestamp: new Date().toISOString(),
+        rawPayload: panelDraftText,
+        confidence: ocrRes.confidence,
+        detectorInfo: { name: "Tesseract.js-WebWorker", version: "5.1" },
+        parsedFields: {
+          brand: panelType === "front" ? panelDraftText.split(" ")[0] : undefined,
+          productName: panelType === "front" ? panelDraftText : undefined,
+          packSize: ocrRes.extractedKeywords.netWeight,
+          fssaiLicense: ocrRes.extractedKeywords.fssaiLicense,
+          allergens: ocrRes.extractedKeywords.allergens,
+          ingredients: panelType === "ingredients" ? panelDraftText.split(",").map((s) => s.trim()) : undefined,
+          batchOrLot: ocrRes.extractedKeywords.dates[0],
+        },
+        warnings: [],
+      };
+
+      const updated = [...observations, newObs];
+      applyObservations(updated);
+
+      if (!capturedPanels.includes(panelId)) {
+        setCapturedPanels([...capturedPanels, panelId]);
+      }
+
+      setActivePanelInput(null);
+      setPanelDraftText("");
+    } finally {
+      setIsOcrProcessing(false);
+    }
+  }
+
+  // User confirmation checkpoint with ConfirmedLabel Gate
   function handleConfirmPhysicalPack() {
-    if (!candidate) return;
+    if (!candidate || !selectedCandidate || !evidenceState) return;
+
+    const gate = validateConfirmedLabelGate(selectedCandidate, evidenceState, userHasCheckedPack);
+    if (!gate.eligible) {
+      setErrorMessage(gate.reasons.join(" "));
+      return;
+    }
 
     try {
       const label = createConfirmedLabel({
@@ -289,10 +427,7 @@ export function SmartScan({
           allergen_declaration_panel: capturedPanels.includes("allergen_declaration") ? "confirmed" : "unreadable",
           nutrition_panel: capturedPanels.includes("nutrition") ? "confirmed" : "unreadable"
         },
-        evidenceReferences: [
-          `user-pack-attestation-${Date.now()}`,
-          matchedProduct ? `catalog-fssai-${matchedProduct.fssaiLicence}` : "manual-transcription"
-        ]
+        evidenceReferences: observations.map((o) => o.observationId)
       });
 
       setConfirmedLabel(label);
@@ -354,6 +489,11 @@ export function SmartScan({
     setQrPayloadInfo(null);
     setErrorMessage("");
     setPantryNotice("");
+    setObservations([]);
+    setEvidenceState(null);
+    setRankedCandidates([]);
+    setSelectedCandidate(null);
+    setUserHasCheckedPack(false);
   }
 
   return (
@@ -473,19 +613,19 @@ export function SmartScan({
       {activeMode === "manual" && !candidate && (
         <div className="manual-entry-container">
           <div className="input-grid">
-            <label htmlFor="manual-gtin-input">Barcode / GTIN / Product Name</label>
+            <label htmlFor="manual-gtin-input">Barcode / GTIN / GS1 Digital Link / Product Name</label>
             <div className="input-with-button">
               <input
                 id="manual-gtin-input"
                 type="text"
-                placeholder="Enter 8, 12, 13, 14-digit GTIN or search query"
+                placeholder="Enter 8-14 digit GTIN, GS1 URL, or product name"
                 value={rawInput}
                 onChange={(e) => setRawInput(e.target.value)}
                 maxLength={4096}
               />
               <button
                 className="primary-button"
-                onClick={() => resolveCandidate(rawInput)}
+                onClick={() => resolveInitialCandidate(rawInput)}
                 disabled={!rawInput.trim()}
               >
                 Find Candidate
@@ -503,7 +643,7 @@ export function SmartScan({
                   className="preset-chip"
                   onClick={() => {
                     setRawInput(item.gtin);
-                    resolveCandidate(item.gtin);
+                    resolveInitialCandidate(item.gtin);
                   }}
                 >
                   <span className="preset-brand">{item.brand}</span>
@@ -516,7 +656,7 @@ export function SmartScan({
       )}
 
       {/* Step 2: Candidate Resolution & Side-by-Side Review */}
-      {candidate && !confirmedLabel && (
+      {candidate && !confirmedLabel && selectedCandidate && (
         <div className="candidate-resolution-section mt-24">
           {/* QR Safety Preview If Applicable */}
           {qrPayloadInfo && (
@@ -535,86 +675,178 @@ export function SmartScan({
             </div>
           )}
 
+          {/* Hard Conflict Banner if any conflict exists */}
+          {evidenceState?.hasHardConflicts && (
+            <div className="conflict-alert-box mb-16">
+              <strong>
+                <AlertTriangle className="btn-icon" /> Hard Conflict Detected Across Observed Panels
+              </strong>
+              <p className="mt-8">
+                Incompatible packaging observations were recorded. Silent promotion is blocked until verified against the physical pack.
+              </p>
+              <ul className="mt-8">
+                {evidenceState.conflicts.map((c) => (
+                  <li key={c.conflictId}>{c.explanation}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Side-by-Side Candidate Comparison */}
           <div className="comparison-card">
             <div className="card-top-row">
-              <span className="status-tag warning">Candidate Match — Not Confirmed</span>
-              <span className="score-badge">Ranking Score Q: 0.94</span>
+              <span className={`status-tag ${selectedCandidate.isBlockedByConflict ? "warning" : "success"}`}>
+                {selectedCandidate.isBlockedByConflict ? "Blocked Candidate" : "Ranked Candidate"}
+              </span>
+              <span className="score-badge">
+                Ranking Score Q: {selectedCandidate.score.toFixed(2)} (S: {selectedCandidate.similarityScore.toFixed(2)}, E: {selectedCandidate.evidenceCoverage.toFixed(2)})
+              </span>
             </div>
 
-            <h3 className="candidate-title">{candidate.displayName}</h3>
+            <h3 className="candidate-title">{selectedCandidate.candidate.brand} — {selectedCandidate.candidate.productName}</h3>
             <p className="tiny text-muted">
-              Source: {candidate.provenance.join(", ")} • GTIN: {candidate.identifier || "None"}
+              Category: {selectedCandidate.candidate.category} • Pack: {selectedCandidate.candidate.packSize} • GTIN: {selectedCandidate.candidate.gtin}
             </p>
 
+            {/* Alternative Ranked Candidates Selector */}
+            {rankedCandidates.length > 1 && (
+              <div className="candidate-selector-bar mt-12 mb-12">
+                <span className="tiny text-muted">Ranked candidate alternatives:</span>
+                <div className="preset-buttons-grid mt-4">
+                  {rankedCandidates.slice(0, 4).map((rc) => (
+                    <button
+                      key={rc.candidate.id}
+                      className={`preset-chip ${selectedCandidate.candidate.id === rc.candidate.id ? "checked" : ""}`}
+                      onClick={() => {
+                        setSelectedCandidate(rc);
+                        setMatchedProduct(rc.candidate);
+                        setPhysicalIdentity(`${rc.candidate.brand} ${rc.candidate.productName}`);
+                      }}
+                    >
+                      <span className="preset-brand">{rc.candidate.brand}</span>
+                      <span className="preset-name">{rc.candidate.productName.slice(0, 18)} (Q: {rc.score.toFixed(2)})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Evidence Coverage Meter */}
+            {evidenceState && (
+              <div className="evidence-coverage-box mt-16">
+                <div className="evidence-meter-header">
+                  <span>Evidence Coverage ($E$): {Math.round(evidenceState.evidenceCoverage * 100)}%</span>
+                  <span className="tiny text-muted">Formula: $Q = S \times \min(1, E / 0.70)$</span>
+                </div>
+                <div className="meter-track">
+                  <div
+                    className={`meter-fill ${evidenceState.evidenceCoverage < 0.5 ? "warning" : ""}`}
+                    style={{ width: `${Math.min(100, Math.round(evidenceState.evidenceCoverage * 100))}%` }}
+                  />
+                </div>
+
+                {/* Provenance Ledger */}
+                <div className="provenance-ledger">
+                  {observations.map((obs) => (
+                    <div key={obs.observationId} className="provenance-entry">
+                      <span className="provenance-source">[{obs.source}]</span>
+                      <span>{obs.rawPayload.slice(0, 45)}...</span>
+                      <span className="provenance-conf">Conf: {(obs.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Field Breakdown Table */}
             <div className="comparison-table-wrapper mt-16">
               <table className="comparison-table">
                 <thead>
                   <tr>
                     <th>Attribute</th>
-                    <th>Observed from Scan</th>
-                    <th>Catalogue Candidate Record</th>
+                    <th>Observed from Scan / OCR</th>
+                    <th>Catalogue Candidate</th>
+                    <th>Weight</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>Brand</td>
-                    <td>{matchedProduct?.brand || "Brand from pack"}</td>
-                    <td>{matchedProduct?.brand || "Tata / Parle / Amul"}</td>
-                    <td><span className="badge-match">Match</span></td>
-                  </tr>
-                  <tr>
-                    <td>Product Name</td>
-                    <td>{matchedProduct?.productName || candidate.displayName}</td>
-                    <td>{matchedProduct?.productName || "Verified SKU"}</td>
-                    <td><span className="badge-match">Match</span></td>
-                  </tr>
-                  <tr>
-                    <td>Pack Size</td>
-                    <td>{matchedProduct?.packSize || "Standard pack"}</td>
-                    <td>{matchedProduct?.packSize || "Standard pack"}</td>
-                    <td><span className="badge-match">Match</span></td>
-                  </tr>
-                  <tr>
-                    <td>FSSAI Licence</td>
-                    <td>{matchedProduct?.fssaiLicence || "10014022002759"}</td>
-                    <td>{matchedProduct?.fssaiLicence || "10014022002759"}</td>
-                    <td><span className="badge-match">Corroborated</span></td>
-                  </tr>
+                  {selectedCandidate.fieldBreakdowns.map((fb) => (
+                    <tr key={fb.field}>
+                      <td style={{ textTransform: "capitalize" }}>{fb.field.replace(/([A-Z])/g, " $1")}</td>
+                      <td>{fb.observedValue || <span className="text-muted">Not observed</span>}</td>
+                      <td>{fb.candidateValue || "—"}</td>
+                      <td>{(fb.weight * 100).toFixed(0)}%</td>
+                      <td>
+                        <span className={`badge-match ${fb.matched ? "" : "warning"}`} style={{ background: fb.matched ? "#E8F5E9" : "#FFF3E0", color: fb.matched ? "#2E7D32" : "#E65100" }}>
+                          {fb.matched ? "Matched" : "Unverified"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
 
-            {/* Guided Panel Checklist */}
+            {/* Guided Panel Capture Flow */}
             <div className="panel-checklist-section mt-20">
               <div className="section-title-row">
                 <Layers className="tiny-icon text-brand-green" />
-                <h4>Critical Panels Captured for Food Safety Verification:</h4>
+                <h4>Guided Pack Panel Capture & Ingestion (Local Web Worker OCR):</h4>
               </div>
-              <div className="panel-chips-row">
+              <p className="tiny text-muted mt-8">
+                Capture key panels to raise evidence coverage $E$ and verify packaging authenticity.
+              </p>
+
+              <div className="panel-chips-row mt-8">
                 {[
-                  { id: "front", label: "Front Panel" },
+                  { id: "front", label: "Front Panel (Brand & SKU)" },
                   { id: "ingredients", label: "Ingredients Panel" },
                   { id: "allergen_declaration", label: "Allergen Statement" },
-                  { id: "nutrition", label: "Nutrition Table" }
+                  { id: "nutrition", label: "Nutrition Facts Table" },
+                  { id: "dates_batch", label: "Dates, Batch & FSSAI" },
                 ].map((p) => {
-                  const isChecked = capturedPanels.includes(p.id);
+                  const isCaptured = capturedPanels.includes(p.id);
                   return (
                     <button
                       key={p.id}
-                      className={`panel-check-chip ${isChecked ? "checked" : ""}`}
-                      onClick={() =>
-                        setCapturedPanels((prev) =>
-                          prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-                        )
-                      }
+                      className={`panel-check-chip ${isCaptured ? "checked" : ""}`}
+                      onClick={() => setActivePanelInput(activePanelInput === p.id ? null : p.id)}
                     >
-                      <CheckCircle2 className="chip-icon" /> {p.label}
+                      <CheckCircle2 className="chip-icon" /> {p.label} {isCaptured ? "✓" : "+ Add"}
                     </button>
                   );
                 })}
               </div>
+
+              {/* Panel OCR Input Box */}
+              {activePanelInput && (
+                <div className="guided-panel-item mt-12">
+                  <div className="guided-panel-header">
+                    <strong>Capture / OCR: {activePanelInput.toUpperCase().replace("_", " ")} PANEL</strong>
+                    <button className="close-btn" onClick={() => setActivePanelInput(null)}><X size={16} /></button>
+                  </div>
+                  <p className="tiny text-muted mt-8">
+                    Type or paste text read from this physical panel. Local Tesseract.js Worker will extract safety tokens.
+                  </p>
+                  <div className="panel-ocr-input-row">
+                    <input
+                      type="text"
+                      placeholder={`Enter text from ${activePanelInput} panel...`}
+                      value={panelDraftText}
+                      onChange={(e) => setPanelDraftText(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      className="primary-button compact-btn"
+                      onClick={() => handleOcrPanelSubmit(activePanelInput)}
+                      disabled={isOcrProcessing || !panelDraftText.trim()}
+                    >
+                      {isOcrProcessing ? <RefreshCw className="spin btn-icon" /> : <FileText className="btn-icon" />} Ingest Observation
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mandatory User Physical Pack Confirmation */}
@@ -650,6 +882,17 @@ export function SmartScan({
                 </div>
               </div>
 
+              <div className="mt-16">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px" }}>
+                  <input
+                    type="checkbox"
+                    checked={userHasCheckedPack}
+                    onChange={(e) => setUserHasCheckedPack(e.target.checked)}
+                  />
+                  <span><strong>I have physically reviewed the pack</strong> and verify that the physical product, ingredients, and allergen panel match.</span>
+                </label>
+              </div>
+
               <div className="confirmation-action-bar mt-16">
                 <button className="secondary-button" onClick={handleResetAll}>
                   Cancel / Scan Another
@@ -657,7 +900,7 @@ export function SmartScan({
                 <button
                   className="primary-button"
                   onClick={handleConfirmPhysicalPack}
-                  disabled={!physicalIdentity.trim() || capturedPanels.length < 2}
+                  disabled={!userHasCheckedPack || !physicalIdentity.trim() || selectedCandidate.isBlockedByConflict}
                 >
                   <CheckCircle2 className="btn-icon" /> I Confirm This Physical Pack
                 </button>
@@ -722,7 +965,7 @@ export function SmartScan({
 
               {/* Safeguard Notice */}
               <div className="subtle-notice mt-12">
-                ℹ️ <strong>Absence Disclaimer:</strong> "Not detected in extracted text" means no matched allergen term was found in the text read. It is not clinical certification of absence.
+                ℹ️ <strong>Absence Disclaimer:</strong> &quot;Not detected in extracted text&quot; means no matched allergen term was found in the text read. It is not clinical certification of absence.
               </div>
             </div>
 
