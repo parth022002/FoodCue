@@ -36,10 +36,10 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 
 | Service / API | Provider | Purpose / Module | Necessity | Environment Variable | Secret / Public? | Configuration Location | Status |
 |---|---|---|---|---|---|---|---|
-| **Neon PostgreSQL** | Neon Lakebase (`neon.tech`) | Cloud database backup & multi-device sync (10 tables) | **Active & Connected** | `VITE_NEON_DATABASE_URL` | Public Pooler Endpoint | `.env`, Vercel Dashboard | **Configured & Migrated (10 Tables Active)** |
+| **Neon PostgreSQL** | Neon Lakebase (`neon.tech`) | Cloud database backup & multi-device sync (11 tables) | **Active & Connected** | `VITE_NEON_DATABASE_URL` | Public Pooler Endpoint | `.env`, Vercel Dashboard | **Configured & Migrated (11 Tables Active with Multi-Tenancy)** |
 | **GitHub API & Repo** | GitHub | Version control, CI/CD Actions, collaborative source | **Required** | `GITHUB_TOKEN` | Secret (CI runner only) | `.github/workflows/ci.yml` | **Configured (`parth022002/FoodCue.git`)** |
 | **OpenRouter API** | OpenRouter (`openrouter.ai`) | Assistive vision/OCR fallback for damaged Indian labels | **Optional (Phase 2)** | `OPENROUTER_API_KEY` | **Strictly Secret** (Edge proxy only) | `.env`, `.env.local`, Vercel Secrets | **Configured & Key Saved in .env** |
-| **Clerk API** | Clerk (`clerk.com`) | Optional user authentication & cross-device identity | **Optional (Phase 2)** | `VITE_CLERK_PUBLISHABLE_KEY`<br>`CLERK_SECRET_KEY` | Publishable in frontend; Secret on Edge | `.env`, `.env.local`, Vercel Secrets | **Configured & Active (App: `app_3MC7...` in .env)** |
+| **Clerk API & Organizations** | Clerk (`clerk.com`) | User auth, cross-device identity & Family Household Sharing | **Optional / Fully Integrated** | `VITE_CLERK_PUBLISHABLE_KEY`<br>`CLERK_SECRET_KEY` | Publishable in frontend; Secret on Edge | `.env`, `.env.local`, Vercel Secrets | **Configured & Active (Organizations Enabled)** |
 | **Groq API** | Groq (`groq.com`) | Ultra-fast Whisper voice intake for pantry unpack mode | **Optional (Phase 2)** | `GROQ_API_KEY` | **Strictly Secret** (Edge proxy only) | `.env`, `.env.local`, Vercel Secrets | **Configured & Key Saved in .env** |
 | **OpenFoodFacts API** | Open Food Facts | Crowdsourced GTIN metadata fallback lookup | **Optional (Baseline)** | None (Public API) | Public (Requires User-Agent) | `src/adapters/catalogue/` | User-initiated only; compliant User-Agent |
 | **Vercel CLI / Token** | Vercel (`vercel.com`) | Edge CDN deployment, CI/CD preview environments | **Required (Hosting)** | `VERCEL_TOKEN` | Secret (CI/CD only) | GitHub Secrets / Vercel CLI | **Configured (`vercel.json` deployed)** |
@@ -71,17 +71,18 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
   # Unpooled Direct Endpoint (Migrations & DDL)
   NEON_DATABASE_URL_UNPOOLED="postgresql://neondb_owner:npg_cKRineBy5q8d@ep-snowy-mode-b3jn52y5.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
   ```
-- **Live Active Schema (10 Tables Ready):**
+- **Live Active Schema (11 Tables Ready with Household Multi-Tenancy):**
   1. `foodcue_users` (Local & Clerk authenticated users)
-  2. `foodcue_profiles` (Allergen avoid-lists, diet preferences, Calm Mode)
+  2. `foodcue_profiles` (Allergen avoid-lists, diet preferences, Calm Mode, `household_id`)
   3. `foodcue_catalog` (Verified packaged food catalog with FSSAI licenses)
   4. `foodcue_confirmed_labels` (Physical pack verification records & hashes)
-  5. `foodcue_pantry_items` (Projected stock inventory)
-  6. `foodcue_pantry_events` (Append-only immutable event ledger)
-  7. `foodcue_reminders` (Expiry dates, best-before, opened-on alerts)
-  8. `foodcue_shopping_list` (Replenishment items & depleted stock)
+  5. `foodcue_pantry_items` (Projected stock inventory with `household_id` multi-tenancy)
+  6. `foodcue_pantry_events` (Append-only immutable event ledger with `household_id` multi-tenancy)
+  7. `foodcue_reminders` (Expiry dates, best-before, opened-on alerts with `household_id`)
+  8. `foodcue_shopping_list` (Replenishment items & depleted stock with `household_id`)
   9. `foodcue_intelligence_rules` (Deterministic rule definitions & mappings)
   10. `foodcue_audit_log` (Tamper-evident privacy & security ledger)
+  11. `foodcue_households` (Family & household organization multi-tenant accounts mapped to Clerk Orgs)
 
 ---
 
@@ -119,17 +120,25 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 
 ---
 
-### 4. Clerk API (User Authentication & Multi-Device Sync)
-- **Status:** **Active & Integrated** (Application: `app_3MC7IlXNBCw4NVWOxhqO29cod7r`).
-- **Purpose:** Optional user accounts for household sharing and cross-device sync.
-- **Zero-Account Guarantee:** FoodCue operates 100% locally by default without requiring an account. Users only encounter Clerk if they explicitly click *"Sign In"* or *"Enable Multi-Device Cloud Sync"*.
+### 4. Clerk API & Clerk Organizations (Household / Family Kitchen Sharing)
+- **Status:** **Active & Fully Integrated** (Application: `app_3MC7IlXNBCw4NVWOxhqO29cod7r`, Instance: `ins_3MC7Ikqni5AxVC7jGmzwBrcAWQW`).
+- **Organizations Feature:** Enabled via Clerk CLI (`npx -y clerk@latest enable orgs`).
+- **Purpose:** Optional user authentication and multi-member **Family Household Kitchen Sharing**.
+  - In FoodCue, a Clerk Organization represents a **Household** (e.g., "The Ahuja Family Kitchen", "Flat 402 Roommates").
+  - Multiple family members can join the same household organization to:
+    1. **Share a Single Live Pantry Inventory:** Any member adding, consuming, or updating items updates the projected pantry ledger for everyone.
+    2. **Collaborative Replenishment Shopping List:** Family members can add required items or check off purchases at the grocery store.
+    3. **Aggregated Family Avoid-List:** Scans in household mode cross-reference allergen and dietary avoid-lists across all household members to protect everyone in the home.
+- **Zero-Account Guarantee:** FoodCue operates 100% locally by default in IndexedDB without requiring an account. Users only encounter Clerk if they explicitly click *"Sign In"* or *"Enable Family Sharing"*.
 - **Key Configuration:**
   - `VITE_CLERK_PUBLISHABLE_KEY`: `pk_test_...` (Exposed to client for `<ClerkProvider>`)
   - `CLERK_SECRET_KEY`: `sk_test_...` (Server/Edge Function only for token verification)
-  - `CLERK_WEBHOOK_SECRET`: `whsec_...` (Synchronizes user creation to `foodcue_users` table in Neon)
+  - `CLERK_WEBHOOK_SECRET`: `whsec_...` (Synchronizes user and organization memberships to `foodcue_households` in Neon)
 - **Client Integration:**
   - Package: `@clerk/react` (Core 3)
   - Global wrapper: `<ClerkProvider publishableKey={...}>` in `src/main.tsx`
+  - Organization Switcher: `<OrganizationSwitcher hidePersonal={false} />` in topbar, Kitchen header, and Profile view.
+  - Organization Hook: `useOrganization()` for live multi-tenant context (`organization.id`, `organization.name`, `organization.membersCount`).
   - Auth Controls: `<Show when="signed-out"><SignInButton /></Show>` and `<Show when="signed-in"><UserButton /></Show>` in topbar and Profile view.
 
 ---

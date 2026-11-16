@@ -28,12 +28,12 @@ STATUS:                Frontend Complete, Verified & Neon Cloud Ready — Public
 | **Section C: Design System & UI Shell** | 10 | 10 | 0 | WCAG 2.2 AA Conforming |
 | **Section D: SmartScan Input Pipeline** | 15 | 13 | 2 (Local OCR Web Worker) | ZXing-WASM + Multi-modal |
 | **Section E: Food Intelligence Engine** | 13 | 11 | 2 (Lexicon Sign-off) | Deterministic Rules Active |
-| **Section F: Kitchen & Pantry Management** | 11 | 11 | 0 | Append-Only Ledger Active |
-| **Section G: Database & Dual-Cloud Sync** | 14 | 14 | 0 | 10 Tables Active on Neon |
+| **Section F: Kitchen & Pantry Management** | 12 | 12 | 0 | Append-Only Ledger + Family Sharing |
+| **Section G: Database & Dual-Cloud Sync** | 15 | 15 | 0 | 11 Tables Active on Neon |
 | **Section H: PWA, Headers & Vercel Deploy** | 10 | 10 | 0 | SW + `vercel.json` Active |
 | **Section I: Security, Privacy & Compliance** | 12 | 12 | 0 | Anti-Redirect + Zero-Secrets |
-| **Section J: Testing & Verification Gates** | 15 | 11 | 4 (G4 100-Pack Benchmark) | 17/17 Unit Tests Passing |
-| **TOTAL** | **115** | **96** | **19** | **Production Frontend Deployed** |
+| **Section J: Testing & Verification Gates** | 15 | 11 | 4 (G4 100-Pack Benchmark) | 53/53 Unit Tests Passing |
+| **TOTAL** | **117** | **99** | **18** | **Production Frontend Deployed** |
 
 ---
 
@@ -142,6 +142,7 @@ STATUS:                Frontend Complete, Verified & Neon Cloud Ready — Public
 | FC-DEV-072 | Phase 2 | Kitchen | **Unpack Mode Grocery Intake** — Rapid multi-item staging list with batch commit to pantry. | P1 | **Done** | Unpack mode drawer in UI | PRD v1.3 §6 (Journey B) |
 | FC-DEV-073 | Phase 2 | Kitchen | **Smart Shopping List** — Add depleted items with one tap; check-off; WhatsApp and CSV export. | P1 | **Done** | `ShoppingList.tsx` active | PRD v1.3 FC-LST-072 |
 | FC-DEV-074 | Phase 2 | Kitchen | **Pack Memory Local Registry** — Local cache of confirmed packs; prompt verification if pack changes. | P1 | **Done** | IndexedDB pack memory | PRD v1.3 FC-MEM-073 |
+| FC-DEV-074B | Phase 2 | Kitchen | **Clerk Organizations for Family Kitchen Sharing** — Multi-member household pantry sharing, `<OrganizationSwitcher />`, and family cloud syncing. | P0 | **Done** | Wired in `Kitchen.tsx` & `ProfileView.tsx` | PRD v1.3 §6 (Family Journey) |
 
 ---
 
@@ -155,17 +156,18 @@ STATUS:                Frontend Complete, Verified & Neon Cloud Ready — Public
 | FC-DEV-078 | Phase 1 | Storage | **Versioned JSON Backup & Export** — Export complete pantry ledger, candidates, and labels to `.json`. | P0 | **Done** | Export download verified | Master Spec §10.2 |
 | FC-DEV-079 | Phase 1 | Storage | **JSON Backup Restore** — Validated file import restoring historical ledger records idempotently. | P0 | **Done** | Import validation verified | Master Spec §10.2 |
 | FC-DEV-080 | Phase 1 | Storage | **Neon Lakebase Postgres Connection** — `@neondatabase/serverless` connection pooler client. | P0 | **Done** | Test connection (28ms latency) | Architecture v1.0 |
-| FC-DEV-081 | Phase 1 | Storage | **10-Table Production Schema Migration** — Deploy complete relational schema DDL to Neon DB. | P0 | **Done** | `scripts/migrate-neon.mjs` (10/10) | `docs/schema.sql` |
+| FC-DEV-081 | Phase 1 | Storage | **11-Table Production Schema Migration** — Deploy complete relational schema DDL to Neon DB with multi-tenancy. | P0 | **Done** | `scripts/migrate-neon.mjs` (11/11) | `docs/schema.sql` |
 | FC-DEV-082 | Phase 1 | Storage | **Neon Table 1: `foodcue_users`** — Identity table supporting anonymous devices and Clerk accounts. | P0 | **Done** | Table active on Neon | `schema.sql` |
-| FC-DEV-083 | Phase 1 | Storage | **Neon Table 2: `foodcue_profiles`** — Avoid-lists, allergens, diet preferences, Calm Mode. | P0 | **Done** | Table active on Neon | `schema.sql` |
+| FC-DEV-083 | Phase 1 | Storage | **Neon Table 2: `foodcue_profiles`** — Avoid-lists, allergens, diet preferences, Calm Mode, `household_id`. | P0 | **Done** | Table active on Neon | `schema.sql` |
 | FC-DEV-084 | Phase 1 | Storage | **Neon Table 3: `foodcue_catalog`** — Master packaged food registry seeded with verified Indian packs. | P0 | **Done** | 4 packs seeded | `schema.sql` |
 | FC-DEV-085 | Phase 1 | Storage | **Neon Table 4: `foodcue_confirmed_labels`** — Audit trail of physical pack captures & hashes. | P0 | **Done** | Table active on Neon | `schema.sql` |
-| FC-DEV-086 | Phase 1 | Storage | **Neon Table 5: `foodcue_pantry_items`** — Projected kitchen stock inventory table. | P0 | **Done** | Table active on Neon | `schema.sql` |
-| FC-DEV-087 | Phase 1 | Storage | **Neon Table 6: `foodcue_pantry_events`** — Append-only immutable event ledger in PostgreSQL. | P0 | **Done** | Table active on Neon | `schema.sql` |
-| FC-DEV-088 | Phase 1 | Storage | **Neon Table 7: `foodcue_reminders`** — Date tracking and planning notifications cloud sync. | P0 | **Done** | Table active on Neon | `schema.sql` |
-| FC-DEV-089 | Phase 1 | Storage | **Neon Table 8: `foodcue_shopping_list`** — Smart replenishment lists cloud sync. | P0 | **Done** | Table active on Neon | `schema.sql` |
+| FC-DEV-086 | Phase 1 | Storage | **Neon Table 5: `foodcue_pantry_items`** — Projected kitchen stock inventory table with `household_id`. | P0 | **Done** | Table active on Neon | `schema.sql` |
+| FC-DEV-087 | Phase 1 | Storage | **Neon Table 6: `foodcue_pantry_events`** — Append-only immutable event ledger with `household_id`. | P0 | **Done** | Table active on Neon | `schema.sql` |
+| FC-DEV-088 | Phase 1 | Storage | **Neon Table 7: `foodcue_reminders`** — Date tracking and planning notifications cloud sync with `household_id`. | P0 | **Done** | Table active on Neon | `schema.sql` |
+| FC-DEV-089 | Phase 1 | Storage | **Neon Table 8: `foodcue_shopping_list`** — Smart replenishment lists cloud sync with `household_id`. | P0 | **Done** | Table active on Neon | `schema.sql` |
 | FC-DEV-090 | Phase 1 | Storage | **Neon Table 9: `foodcue_intelligence_rules`** — Deterministic FSSAI rule versions and regexes. | P0 | **Done** | Table active on Neon | `schema.sql` |
 | FC-DEV-091 | Phase 1 | Storage | **Neon Table 10: `foodcue_audit_log`** — Tamper-evident privacy and security audit ledger. | P0 | **Done** | Table active on Neon | `schema.sql` |
+| FC-DEV-091B | Phase 1 | Storage | **Neon Table 11: `foodcue_households`** — Clerk Organizations mapping table for family & household sharing. | P0 | **Done** | Table active on Neon | `schema.sql` |
 
 ---
 

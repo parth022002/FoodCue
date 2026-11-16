@@ -1,6 +1,23 @@
 import { useState, useEffect } from "react";
-import { Show, SignInButton, UserButton } from "@clerk/react";
-import { User, ShieldAlert, Sparkles, Check, Trash2, Cloud } from "lucide-react";
+import {
+  Show,
+  SignInButton,
+  UserButton,
+  OrganizationSwitcher,
+  useOrganization,
+  useUser
+} from "@clerk/react";
+import {
+  User,
+  ShieldAlert,
+  Sparkles,
+  Check,
+  Trash2,
+  Users,
+  ShieldCheck,
+  ShoppingCart,
+  Refrigerator
+} from "lucide-react";
 
 export interface UserFoodProfile {
   avoidAllergens: string[];
@@ -35,6 +52,94 @@ const COMMON_AVOID_INGREDIENTS = [
   "Monosodium Glutamate (MSG / INS 621)",
   "Hydrogenated Vegetable Oils (Trans Fats)"
 ];
+
+function HouseholdSharingCard() {
+  const { organization, isLoaded } = useOrganization();
+  const { user } = useUser();
+
+  if (!isLoaded) return null;
+
+  return (
+    <div className="household-profile-card mb-24">
+      <div className="card-header-flex">
+        <div className="setting-title-row">
+          <Users className="btn-icon text-brand-green" aria-hidden="true" />
+          <h3 className="section-title">Household & Family Kitchen Sharing</h3>
+        </div>
+        <div className="user-profile-controls">
+          <Show when="signed-in">
+            <div className="clerk-org-switcher-wrapper">
+              <OrganizationSwitcher hidePersonal={false} />
+            </div>
+            <div className="clerk-user-avatar ml-8">
+              <UserButton />
+            </div>
+          </Show>
+        </div>
+      </div>
+
+      <Show when="signed-out">
+        <p className="tiny text-muted mb-16">
+          Operating anonymously in local browser storage. Sign in with Clerk to invite household members, synchronize your shared pantry inventory, and collaborate on meal plans.
+        </p>
+        <SignInButton mode="modal">
+          <button className="primary-button compact-btn">
+            Sign In to Enable Family Sharing
+          </button>
+        </SignInButton>
+      </Show>
+
+      <Show when="signed-in">
+        {organization ? (
+          <div className="household-active-details">
+            <div className="active-household-pill mb-12">
+              <span className="dot online-dot" />
+              <span>Active Household: <strong>{organization.name}</strong></span>
+              {organization.membersCount ? (
+                <span className="member-count-tag">
+                  {organization.membersCount} {organization.membersCount === 1 ? "family member" : "family members"}
+                </span>
+              ) : null}
+            </div>
+            <p className="tiny text-muted mb-16">
+              You are currently viewing and modifying the shared family inventory. Any items scanned, logged, or consumed sync automatically with all members of <strong>{organization.name}</strong>.
+            </p>
+          </div>
+        ) : (
+          <div className="household-inactive-details mb-16">
+            <p className="tiny text-muted">
+              You are in <strong>Personal Kitchen Mode</strong> ({user?.primaryEmailAddress?.emailAddress ?? "Signed In"}). Only you can view your pantry and scans. Use the dropdown above to create a Household Organization (e.g., &quot;The Sharma Household&quot;) and invite your family.
+            </p>
+          </div>
+        )}
+
+        <div className="sharing-benefits-grid">
+          <div className="benefit-item">
+            <Refrigerator className="benefit-icon text-brand-green" />
+            <div>
+              <strong>Shared Pantry Stock</strong>
+              <p className="tiny text-muted">Real-time ledger prevents accidental duplicate grocery purchases.</p>
+            </div>
+          </div>
+          <div className="benefit-item">
+            <ShoppingCart className="benefit-icon text-brand-lime" />
+            <div>
+              <strong>Collaborative Shopping</strong>
+              <p className="tiny text-muted">Family members can add items or tick them off at the store.</p>
+            </div>
+          </div>
+          <div className="benefit-item">
+            <ShieldCheck className="benefit-icon text-warning" />
+            <div>
+              <strong>Combined Avoid-List</strong>
+              <p className="tiny text-muted">Label scans cross-reference allergens for every family member.</p>
+            </div>
+          </div>
+        </div>
+      </Show>
+    </div>
+  );
+}
 
 export function ProfileView({
   onProfileChange
@@ -131,37 +236,8 @@ export function ProfileView({
         </p>
       </div>
 
-      {/* Clerk Multi-Device Cloud Sync Card */}
-      {hasClerkKey && (
-        <div className="setting-card mb-20" style={{ border: "1px solid #C8E6C9", background: "#F4FBF4" }}>
-          <div className="setting-info">
-            <div className="setting-title-row">
-              <Cloud className="btn-icon text-brand-green" aria-hidden="true" />
-              <h3>Household Multi-Device Sync (Clerk)</h3>
-            </div>
-            <p className="tiny text-muted">
-              <Show when="signed-in">
-                Signed in with Clerk. Your household dietary avoid-list and pantry stock sync across all your devices.
-              </Show>
-              <Show when="signed-out">
-                Operating anonymously in offline local storage. Sign in with Clerk to back up and sync your household dietary avoid-list across devices.
-              </Show>
-            </p>
-          </div>
-          <div>
-            <Show when="signed-out">
-              <SignInButton mode="modal">
-                <button className="primary-button compact-btn">
-                  Sign In / Sign Up
-                </button>
-              </SignInButton>
-            </Show>
-            <Show when="signed-in">
-              <UserButton />
-            </Show>
-          </div>
-        </div>
-      )}
+      {/* Household & Family Kitchen Sharing (Clerk Organizations) */}
+      {hasClerkKey && <HouseholdSharingCard />}
 
       {/* Calm Mode Switch */}
       <div className="setting-card">

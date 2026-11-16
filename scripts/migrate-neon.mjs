@@ -211,6 +211,28 @@ async function runMigration() {
   `;
   console.log("✓ Table foodcue_audit_log ready");
 
+  // 11. Households & Family Sharing (Clerk Organizations)
+  await sql`
+    CREATE TABLE IF NOT EXISTS foodcue_households (
+      household_id VARCHAR(128) PRIMARY KEY,
+      name VARCHAR(256) NOT NULL,
+      slug VARCHAR(128),
+      image_url TEXT,
+      created_by_user_id VARCHAR(64),
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  console.log("✓ Table foodcue_households ready");
+
+  // Multi-Tenancy Columns for Household/Family Kitchen Sharing
+  await sql`ALTER TABLE foodcue_pantry_items ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`;
+  await sql`ALTER TABLE foodcue_pantry_events ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`;
+  await sql`ALTER TABLE foodcue_shopping_list ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`;
+  await sql`ALTER TABLE foodcue_reminders ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`;
+  await sql`ALTER TABLE foodcue_profiles ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`;
+  console.log("✓ Multi-tenancy household_id columns configured");
+
   // Create Critical Indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_catalog_gtin ON foodcue_catalog(gtin);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_catalog_brand ON foodcue_catalog(brand);`;
@@ -218,7 +240,12 @@ async function runMigration() {
   await sql`CREATE INDEX IF NOT EXISTS idx_pantry_events_item ON foodcue_pantry_events(item_id, occurred_at);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_reminders_target ON foodcue_reminders(user_id, status, target_date);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_user ON foodcue_shopping_list(user_id, checked);`;
-  console.log("✓ Performance indexes created");
+  await sql`CREATE INDEX IF NOT EXISTS idx_pantry_items_household ON foodcue_pantry_items(household_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_pantry_events_household ON foodcue_pantry_events(household_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_shopping_list_household ON foodcue_shopping_list(household_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_reminders_household ON foodcue_reminders(household_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_profiles_household ON foodcue_profiles(household_id);`;
+  console.log("✓ Performance & household indexes created");
 
   // Seed default anonymous user and local profile
   await sql`

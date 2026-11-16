@@ -162,6 +162,28 @@ button, input, select, textarea {
 .clerk-auth-slot {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.clerk-org-slot {
+  display: flex;
+  align-items: center;
+}
+
+.clerk-org-slot .cl-organizationSwitcherTrigger {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: all 0.2s ease;
+}
+
+.clerk-org-slot .cl-organizationSwitcherTrigger:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
 }
 
 .auth-pill {
@@ -186,6 +208,171 @@ button, input, select, textarea {
 .pill-icon {
   width: 13px;
   height: 13px;
+}
+
+/* Household & Family Kitchen Cards */
+.household-kitchen-card {
+  background: linear-gradient(135deg, #F4FBF6 0%, #FFFFFF 100%);
+  border: 1px solid #C8E6C9;
+  border-radius: var(--radius-card);
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.household-active-state,
+.household-personal-state,
+.household-anonymous-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.household-info {
+  flex: 1;
+  min-width: 260px;
+}
+
+.household-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.household-pill {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1B5E20;
+  background: #E8F5E9;
+  border: 1px solid #A5D6A7;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.personal-pill {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1565C0;
+  background: #E3F2FD;
+  border: 1px solid #BBDEFB;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.household-org-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-ink);
+}
+
+.member-count-badge {
+  background: #E0F2F1;
+  color: #00695C;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.household-subtext {
+  font-size: 12px;
+  color: var(--color-muted);
+  margin: 6px 0 0 0;
+  line-height: 1.4;
+}
+
+.household-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.household-switcher-box {
+  display: flex;
+  align-items: center;
+}
+
+/* Household Profile Card */
+.household-profile-card {
+  background: #F8FDF9;
+  border: 1px solid #C8E6C9;
+  border-radius: var(--radius-card);
+  padding: 20px;
+}
+
+.card-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.user-profile-controls {
+  display: flex;
+  align-items: center;
+}
+
+.ml-8 {
+  margin-left: 8px;
+}
+
+.active-household-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #E8F5E9;
+  border: 1px solid #A5D6A7;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  color: #1B5E20;
+}
+
+.online-dot {
+  background: #2E7D32;
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+}
+
+.member-count-tag {
+  background: #C8E6C9;
+  color: #1B5E20;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.sharing-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #E0E0E0;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.benefit-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* Main Navigation Tabs */

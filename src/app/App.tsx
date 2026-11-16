@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Show, SignInButton, UserButton } from "@clerk/react";
+import { Show, SignInButton, UserButton, OrganizationSwitcher } from "@clerk/react";
 import { SmartScan } from "../features/smartscan/SmartScan";
 import { Kitchen } from "../features/kitchen/Kitchen";
 import { Reminders } from "../features/reminders/Reminders";
@@ -107,6 +107,9 @@ export function App() {
                 </SignInButton>
               </Show>
               <Show when="signed-in">
+                <div className="clerk-org-slot" title="Switch Household / Personal Kitchen">
+                  <OrganizationSwitcher hidePersonal={false} />
+                </div>
                 <div className="clerk-user-avatar">
                   <UserButton />
                 </div>

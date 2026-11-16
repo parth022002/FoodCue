@@ -347,12 +347,35 @@ export async function initializeNeonSchema(): Promise<{ success: boolean; messag
       );
     `);
 
+    // 11. Households & Family Sharing (Clerk Organizations)
+    await queryNeon(`
+      CREATE TABLE IF NOT EXISTS foodcue_households (
+        household_id VARCHAR(128) PRIMARY KEY,
+        name VARCHAR(256) NOT NULL,
+        slug VARCHAR(128),
+        image_url TEXT,
+        created_by_user_id VARCHAR(64),
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Multi-tenancy columns for Household/Family Kitchen Sharing
+    await queryNeon(`ALTER TABLE foodcue_pantry_items ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`);
+    await queryNeon(`ALTER TABLE foodcue_pantry_events ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`);
+    await queryNeon(`ALTER TABLE foodcue_shopping_list ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`);
+    await queryNeon(`ALTER TABLE foodcue_reminders ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`);
+    await queryNeon(`ALTER TABLE foodcue_profiles ADD COLUMN IF NOT EXISTS household_id VARCHAR(128);`);
+
     // Indexes
     await queryNeon(`CREATE INDEX IF NOT EXISTS idx_catalog_gtin ON foodcue_catalog(gtin);`);
     await queryNeon(`CREATE INDEX IF NOT EXISTS idx_pantry_items_user ON foodcue_pantry_items(user_id, status);`);
     await queryNeon(`CREATE INDEX IF NOT EXISTS idx_pantry_events_item ON foodcue_pantry_events(item_id, occurred_at);`);
     await queryNeon(`CREATE INDEX IF NOT EXISTS idx_reminders_target ON foodcue_reminders(user_id, status, target_date);`);
     await queryNeon(`CREATE INDEX IF NOT EXISTS idx_shopping_user ON foodcue_shopping_list(user_id, checked);`);
+    await queryNeon(`CREATE INDEX IF NOT EXISTS idx_pantry_items_household ON foodcue_pantry_items(household_id);`);
+    await queryNeon(`CREATE INDEX IF NOT EXISTS idx_pantry_events_household ON foodcue_pantry_events(household_id);`);
+    await queryNeon(`CREATE INDEX IF NOT EXISTS idx_shopping_list_household ON foodcue_shopping_list(household_id);`);
 
     const tableRows = await queryNeon<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'foodcue_%' ORDER BY table_name;"
@@ -418,10 +441,48 @@ export async function syncProfileToNeon(profile: CloudUserProfile): Promise<void
   );
 }
 
+export interface HouseholdRecord {
+  householdId: string;
+  name: string;
+  slug?: string;
+  imageUrl?: string;
+  createdByUserId?: string;
+}
+
 /**
- * Syncs local pantry events to Neon Postgres append-only ledger table
+ * Registers or updates a household organization in Neon Postgres
  */
-export async function syncPantryEventsToNeon(events: PantryEvent[], userId = "local-user"): Promise<number> {
+export async function syncHouseholdToNeon(household: HouseholdRecord): Promise<void> {
+  await initializeNeonSchema();
+  await queryNeon(
+    `
+    INSERT INTO foodcue_households (household_id, name, slug, image_url, created_by_user_id, updated_at)
+    VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+    ON CONFLICT (household_id) DO UPDATE SET
+      name = EXCLUDED.name,
+      slug = EXCLUDED.slug,
+      image_url = EXCLUDED.image_url,
+      updated_at = CURRENT_TIMESTAMP;
+  `,
+    [
+      household.householdId,
+      household.name,
+      household.slug ?? null,
+      household.imageUrl ?? null,
+      household.createdByUserId ?? null
+    ]
+  );
+}
+
+/**
+ * Syncs local pantry events to Neon Postgres append-only ledger table.
+ * If householdId is provided, items are attributed to the shared household pantry.
+ */
+export async function syncPantryEventsToNeon(
+  events: PantryEvent[],
+  userId = "local-user",
+  householdId?: string | null
+): Promise<number> {
   if (events.length === 0) return 0;
   await initializeNeonSchema();
 
@@ -430,9 +491,10 @@ export async function syncPantryEventsToNeon(events: PantryEvent[], userId = "lo
     await queryNeon(
       `
       INSERT INTO foodcue_pantry_events (
-        event_id, item_id, user_id, event_type, quantity_delta, unit, location, date_type, date_value, note, occurred_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      ON CONFLICT (event_id) DO NOTHING;
+        event_id, item_id, user_id, event_type, quantity_delta, unit, location, date_type, date_value, note, occurred_at, household_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (event_id) DO UPDATE SET
+        household_id = COALESCE(EXCLUDED.household_id, foodcue_pantry_events.household_id);
     `,
       [
         event.eventId,
@@ -445,7 +507,8 @@ export async function syncPantryEventsToNeon(events: PantryEvent[], userId = "lo
         event.dateType ?? null,
         event.dateValue ?? null,
         event.note ?? null,
-        event.occurredAt
+        event.occurredAt,
+        householdId ?? null
       ]
     );
     syncedCount++;
@@ -454,10 +517,19 @@ export async function syncPantryEventsToNeon(events: PantryEvent[], userId = "lo
 }
 
 /**
- * Fetches all pantry events from Neon Postgres to restore local state
+ * Fetches all pantry events from Neon Postgres to restore local state.
+ * When householdId is present, queries events for the entire household.
  */
-export async function fetchPantryEventsFromNeon(userId = "local-user"): Promise<PantryEvent[]> {
+export async function fetchPantryEventsFromNeon(
+  userId = "local-user",
+  householdId?: string | null
+): Promise<PantryEvent[]> {
   await initializeNeonSchema();
+  const query = householdId
+    ? `SELECT * FROM foodcue_pantry_events WHERE household_id = $1 ORDER BY occurred_at ASC;`
+    : `SELECT * FROM foodcue_pantry_events WHERE user_id = $1 AND (household_id IS NULL OR household_id = '') ORDER BY occurred_at ASC;`;
+  const param = householdId ? householdId : userId;
+
   const rows = await queryNeon<{
     event_id: string;
     item_id: string;
@@ -470,7 +542,7 @@ export async function fetchPantryEventsFromNeon(userId = "local-user"): Promise<
     note: string | null;
     occurred_at: string;
     created_at: string;
-  }>(`SELECT * FROM foodcue_pantry_events WHERE user_id = $1 ORDER BY occurred_at ASC;`, [userId]);
+  }>(query, [param]);
 
   return rows.map((r) => ({
     eventId: r.event_id,
@@ -491,9 +563,13 @@ export async function fetchPantryEventsFromNeon(userId = "local-user"): Promise<
 }
 
 /**
- * Syncs pantry stock items to Neon
+ * Syncs pantry stock items to Neon with optional household tenancy
  */
-export async function syncPantryItemsToNeon(items: PantryItem[], userId = "local-user"): Promise<number> {
+export async function syncPantryItemsToNeon(
+  items: PantryItem[],
+  userId = "local-user",
+  householdId?: string | null
+): Promise<number> {
   if (items.length === 0) return 0;
   await initializeNeonSchema();
 
@@ -502,8 +578,8 @@ export async function syncPantryItemsToNeon(items: PantryItem[], userId = "local
     await queryNeon(
       `
       INSERT INTO foodcue_pantry_items (
-        item_id, user_id, product_name, current_quantity, unit, location, date_type, date_value, status, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+        item_id, user_id, product_name, current_quantity, unit, location, date_type, date_value, status, household_id, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
       ON CONFLICT (item_id) DO UPDATE SET
         product_name = EXCLUDED.product_name,
         current_quantity = EXCLUDED.current_quantity,
@@ -512,6 +588,7 @@ export async function syncPantryItemsToNeon(items: PantryItem[], userId = "local
         date_type = EXCLUDED.date_type,
         date_value = EXCLUDED.date_value,
         status = EXCLUDED.status,
+        household_id = COALESCE(EXCLUDED.household_id, foodcue_pantry_items.household_id),
         updated_at = CURRENT_TIMESTAMP;
     `,
       [
@@ -523,7 +600,8 @@ export async function syncPantryItemsToNeon(items: PantryItem[], userId = "local
         item.location,
         item.dateType ?? null,
         item.dateValue ?? null,
-        item.status
+        item.status,
+        householdId ?? null
       ]
     );
     count++;
@@ -532,9 +610,13 @@ export async function syncPantryItemsToNeon(items: PantryItem[], userId = "local
 }
 
 /**
- * Syncs shopping list items to Neon
+ * Syncs shopping list items to Neon with optional household tenancy
  */
-export async function syncShoppingListToNeon(items: CloudShoppingItem[], userId = "local-user"): Promise<number> {
+export async function syncShoppingListToNeon(
+  items: CloudShoppingItem[],
+  userId = "local-user",
+  householdId?: string | null
+): Promise<number> {
   if (items.length === 0) return 0;
   await initializeNeonSchema();
 
@@ -543,12 +625,13 @@ export async function syncShoppingListToNeon(items: CloudShoppingItem[], userId 
     await queryNeon(
       `
       INSERT INTO foodcue_shopping_list (
-        list_item_id, user_id, gtin, product_name, brand, category, requested_quantity, unit, checked, source, notes, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+        list_item_id, user_id, gtin, product_name, brand, category, requested_quantity, unit, checked, source, notes, household_id, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
       ON CONFLICT (list_item_id) DO UPDATE SET
         checked = EXCLUDED.checked,
         requested_quantity = EXCLUDED.requested_quantity,
         notes = EXCLUDED.notes,
+        household_id = COALESCE(EXCLUDED.household_id, foodcue_shopping_list.household_id),
         updated_at = CURRENT_TIMESTAMP;
     `,
       [
@@ -562,12 +645,55 @@ export async function syncShoppingListToNeon(items: CloudShoppingItem[], userId 
         it.unit,
         it.checked,
         it.source,
-        it.notes ?? null
+        it.notes ?? null,
+        householdId ?? null
       ]
     );
     count++;
   }
   return count;
+}
+
+/**
+ * Fetches shopping list items from Neon (household or user scope)
+ */
+export async function fetchShoppingListFromNeon(
+  userId = "local-user",
+  householdId?: string | null
+): Promise<CloudShoppingItem[]> {
+  await initializeNeonSchema();
+  const query = householdId
+    ? `SELECT * FROM foodcue_shopping_list WHERE household_id = $1 ORDER BY created_at ASC;`
+    : `SELECT * FROM foodcue_shopping_list WHERE user_id = $1 AND (household_id IS NULL OR household_id = '') ORDER BY created_at ASC;`;
+  const param = householdId ? householdId : userId;
+
+  const rows = await queryNeon<{
+    list_item_id: string;
+    user_id: string;
+    gtin: string | null;
+    product_name: string;
+    brand: string | null;
+    category: string;
+    requested_quantity: string;
+    unit: string;
+    checked: boolean;
+    source: string;
+    notes: string | null;
+  }>(query, [param]);
+
+  return rows.map((r) => ({
+    listItemId: r.list_item_id,
+    userId: r.user_id,
+    gtin: r.gtin ?? undefined,
+    productName: r.product_name,
+    brand: r.brand ?? undefined,
+    category: r.category,
+    requestedQuantity: Number(r.requested_quantity),
+    unit: r.unit,
+    checked: r.checked,
+    source: r.source,
+    notes: r.notes ?? undefined
+  }));
 }
 
 /**

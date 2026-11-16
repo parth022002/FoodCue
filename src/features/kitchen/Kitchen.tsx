@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { useOrganization, useUser, OrganizationSwitcher, Show } from "@clerk/react";
 import type { PantryEvent } from "../../domain/entities/pantry";
 import { getAllRecords, putRecord } from "../../adapters/storage/database";
 import { appendPantryEvent, projectBalances } from "../../domain/services/pantryLedger";
+import {
+  syncPantryEventsToNeon,
+  fetchPantryEventsFromNeon
+} from "../../adapters/storage/neonDatabase";
 import {
   Refrigerator,
   Plus,
@@ -13,7 +18,10 @@ import {
   Sparkles,
   History,
   CheckCircle2,
-  X
+  X,
+  Users,
+  Home,
+  Cloud
 } from "lucide-react";
 
 export interface EnrichedPantryItem {
@@ -28,12 +36,136 @@ export interface EnrichedPantryItem {
   isOpened: boolean;
 }
 
+const hasClerkKey = Boolean(
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+);
+
+function HouseholdKitchenBanner({
+  events,
+  onEventsReloaded,
+  onNotice
+}: {
+  events: PantryEvent[];
+  onEventsReloaded: () => void;
+  onNotice: (msg: string) => void;
+}) {
+  const { organization, isLoaded } = useOrganization();
+  const { user } = useUser();
+  const [syncing, setSyncing] = useState(false);
+
+  // When switching to a household organization, auto-fetch cloud events
+  useEffect(() => {
+    if (organization?.id && user?.id) {
+      fetchPantryEventsFromNeon(user.id, organization.id)
+        .then(async (cloudEvents) => {
+          if (cloudEvents.length > 0) {
+            for (const ev of cloudEvents) {
+              await putRecord("pantryEvents", ev);
+            }
+            onEventsReloaded();
+            onNotice(`Loaded ${cloudEvents.length} household pantry events from Cloud.`);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [organization?.id, user?.id]);
+
+  if (!isLoaded) return null;
+
+  async function handleCloudSync() {
+    if (!user) return;
+    setSyncing(true);
+    try {
+      const count = await syncPantryEventsToNeon(events, user.id, organization?.id);
+      onNotice(`✓ Synced ${count} pantry events to Neon Lakebase Cloud!`);
+    } catch (err) {
+      onNotice(`Sync note: ${err instanceof Error ? err.message : "Sync completed locally."}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  return (
+    <div className="household-kitchen-card mb-20">
+      <Show when="signed-in">
+        {organization ? (
+          <div className="household-active-state">
+            <div className="household-info">
+              <div className="household-badge-row">
+                <span className="household-pill">
+                  <Users className="pill-icon" aria-hidden="true" /> Family Shared Pantry
+                </span>
+                <span className="household-org-name">{organization.name}</span>
+                {organization.membersCount ? (
+                  <span className="member-count-badge">
+                    {organization.membersCount} {organization.membersCount === 1 ? "family member" : "family members"}
+                  </span>
+                ) : null}
+              </div>
+              <p className="household-subtext">
+                All family members in <strong>{organization.name}</strong> share this real-time pantry inventory.
+              </p>
+            </div>
+            <div className="household-actions">
+              <button
+                className="secondary-button compact-btn"
+                onClick={handleCloudSync}
+                disabled={syncing}
+                title="Sync pantry events to Neon cloud for family members"
+              >
+                <Cloud className="btn-icon text-brand-green" /> {syncing ? "Syncing..." : "Sync Family Cloud"}
+              </button>
+              <div className="household-switcher-box">
+                <OrganizationSwitcher hidePersonal={false} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="household-personal-state">
+            <div className="household-info">
+              <div className="household-badge-row">
+                <span className="personal-pill">
+                  <Home className="pill-icon" aria-hidden="true" /> Personal Kitchen Mode
+                </span>
+              </div>
+              <p className="household-subtext">
+                Want multiple family members to share a single pantry inventory and meal plan? Switch or create a Household Organization.
+              </p>
+            </div>
+            <div className="household-actions">
+              <div className="household-switcher-box">
+                <OrganizationSwitcher hidePersonal={false} />
+              </div>
+            </div>
+          </div>
+        )}
+      </Show>
+      <Show when="signed-out">
+        <div className="household-anonymous-state">
+          <div className="household-info">
+            <div className="household-badge-row">
+              <span className="local-pill">
+                <span className="dot" /> Stored 100% on this Device
+              </span>
+            </div>
+            <p className="household-subtext">
+              Sign in with Clerk to enable multi-device synchronization and create a shared Family Household Kitchen.
+            </p>
+          </div>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
 export function Kitchen({ onOpenSmartScan }: { onOpenSmartScan?: () => void }) {
   const [events, setEvents] = useState<PantryEvent[]>([]);
   const [activeTab, setActiveTab] = useState<"All" | "Pantry" | "Fridge" | "Freezer" | "Use Soon">("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState("");
   const [undoNotice, setUndoNotice] = useState<string | null>(null);
+  const [cloudNotice, setCloudNotice] = useState<string | null>(null);
   const [lastEvent, setLastEvent] = useState<PantryEvent | null>(null);
 
   // Manual Add Form State
@@ -259,6 +391,25 @@ export function Kitchen({ onOpenSmartScan }: { onOpenSmartScan?: () => void }) {
       <p className="muted">
         Balances are computed directly from an append-only event ledger. Every stock adjustment creates an auditable record.
       </p>
+
+      {/* Household & Family Kitchen Banner */}
+      {hasClerkKey && (
+        <HouseholdKitchenBanner
+          events={events}
+          onEventsReloaded={loadEvents}
+          onNotice={(msg) => {
+            setCloudNotice(msg);
+            setTimeout(() => setCloudNotice(null), 4000);
+          }}
+        />
+      )}
+
+      {/* Cloud Notification */}
+      {cloudNotice && (
+        <div className="alert info mb-16" role="status">
+          {cloudNotice}
+        </div>
+      )}
 
       {/* Undo Banner */}
       {undoNotice && (
