@@ -38,9 +38,9 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 |---|---|---|---|---|---|---|---|
 | **Neon PostgreSQL** | Neon Lakebase (`neon.tech`) | Cloud database backup & multi-device sync (10 tables) | **Active & Connected** | `VITE_NEON_DATABASE_URL` | Public Pooler Endpoint | `.env`, Vercel Dashboard | **Configured & Migrated (10 Tables Active)** |
 | **GitHub API & Repo** | GitHub | Version control, CI/CD Actions, collaborative source | **Required** | `GITHUB_TOKEN` | Secret (CI runner only) | `.github/workflows/ci.yml` | **Configured (`parth022002/FoodCue.git`)** |
-| **OpenRouter API** | OpenRouter (`openrouter.ai`) | Assistive vision/OCR fallback for damaged Indian labels | **Optional (Phase 2)** | `OPENROUTER_API_KEY` | **Strictly Secret** (Edge proxy only) | Vercel Edge Serverless Function | Documented; Pre-integrated pattern |
+| **OpenRouter API** | OpenRouter (`openrouter.ai`) | Assistive vision/OCR fallback for damaged Indian labels | **Optional (Phase 2)** | `OPENROUTER_API_KEY` | **Strictly Secret** (Edge proxy only) | `.env`, `.env.local`, Vercel Secrets | **Configured & Key Saved in .env** |
 | **Clerk API** | Clerk (`clerk.com`) | Optional user authentication & cross-device identity | **Optional (Phase 2)** | `VITE_CLERK_PUBLISHABLE_KEY`<br>`CLERK_SECRET_KEY` | Publishable in frontend; Secret on Edge | `.env`, Vercel Dashboard | Documented; Anonymous fallback baseline |
-| **Groq API** | Groq (`groq.com`) | Ultra-fast Whisper voice intake for pantry unpack mode | **Optional (Phase 2)** | `GROQ_API_KEY` | **Strictly Secret** (Edge proxy only) | Vercel Edge Serverless Function | Documented; Whisper turbo integration pattern |
+| **Groq API** | Groq (`groq.com`) | Ultra-fast Whisper voice intake for pantry unpack mode | **Optional (Phase 2)** | `GROQ_API_KEY` | **Strictly Secret** (Edge proxy only) | `.env`, `.env.local`, Vercel Secrets | **Configured & Key Saved in .env** |
 | **OpenFoodFacts API** | Open Food Facts | Crowdsourced GTIN metadata fallback lookup | **Optional (Baseline)** | None (Public API) | Public (Requires User-Agent) | `src/adapters/catalogue/` | User-initiated only; compliant User-Agent |
 | **Vercel CLI / Token** | Vercel (`vercel.com`) | Edge CDN deployment, CI/CD preview environments | **Required (Hosting)** | `VERCEL_TOKEN` | Secret (CI/CD only) | GitHub Secrets / Vercel CLI | **Configured (`vercel.json` deployed)** |
 | **PostHog / Sentry** | Sentry / PostHog | Opt-in error reporting & diagnostic crash telemetry | **Optional (Phase 3)** | `VITE_SENTRY_DSN` | Public Client DSN | `.env` | Scrubbed PII only; disabled by default |
@@ -89,6 +89,7 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 ---
 
 ### 3. OpenRouter API (Phase 2 Assistive AI / Vision Fallback)
+- **Status:** **Active & Key Saved** (Configured securely in gitignored `.env` and `.env.local`).
 - **Purpose:** Fallback transcription of low-contrast or physically damaged packaging panels (e.g., curved foil pouches, faint dot-matrix inkjet expiration stamps).
 - **Endpoint:** `https://openrouter.ai/api/v1/chat/completions`
 - **Recommended Free & Low-Cost Vision Models:**
@@ -96,7 +97,8 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
   - `meta-llama/llama-3.2-11b-vision-instruct:free` (Open source, fast transcription)
   - `qwen/qwen-2.5-vl-72b-instruct` (High performance on multilingual Indian packaging)
 - **Security & Safety Directive:**
-  - **Never expose `OPENROUTER_API_KEY` in frontend source code.**
+  - **Never expose `OPENROUTER_API_KEY` in public frontend source code or git commits.**
+  - Stored in gitignored `.env` / `.env.local` and deployed to Vercel Environment Variables.
   - Calls must route through a Vercel Serverless/Edge Function (`/api/ocr-assist`).
   - **Prompt Sandbox:** The system prompt must enforce strictly structured JSON output:
     ```text
@@ -116,6 +118,7 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 ---
 
 ### 5. Groq API (High-Speed Kitchen Audio & OCR Post-Processing)
+- **Status:** **Active & Key Saved** (Configured securely in gitignored `.env` and `.env.local`).
 - **Purpose:**
   1. **Hands-free Kitchen Voice Intake:** Whisper large turbo parses natural speech while cooking: *"FoodCue, unpack 2 liters of milk and 1 loaf of bread into the fridge."*
   2. **Instant Additive Regex Mapping:** Sub-50ms regex parsing of multi-line ingredient statements.
@@ -123,7 +126,7 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 - **Models:**
   - `whisper-large-v3-turbo` (Speech-to-text; ~$0.04 / hour of audio)
   - `llama-3.3-70b-versatile` (Fast inference at 250+ tokens/sec)
-- **Environment Variable:** `GROQ_API_KEY` (Stored in Vercel Edge Secrets).
+- **Environment Variable:** `GROQ_API_KEY` (Stored in gitignored `.env`, `.env.local`, and Vercel Edge Secrets).
 
 ---
 
