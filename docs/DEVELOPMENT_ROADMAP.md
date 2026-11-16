@@ -100,6 +100,17 @@ gantt
 
 ---
 
+## 4. Recommended Next Development Slice (S2 — SmartScan & Local OCR Spike)
+
+With Phase 0 (S0 – Foundation) and Phase 1 (S1 – Local Data) fully complete, verified, and tested (30/30 unit tests passing), the recommended next technical slice is **S2 – SmartScan & Local Decoding/OCR Spike**:
+
+1. **Benchmark Local Browser OCR:** Conduct an isolated Web Worker spike evaluating `PaddleOCR.js` vs `Tesseract.js` on 30 Indian packaged food label crops (English text, curved surfaces, reflections).
+2. **GS1 Parser Conformance:** Expand `src/domain/rules/gs1Parser.ts` to test against all 13 official GS1 test vectors.
+3. **Evidence Resolver Spike:** Wire multi-panel OCR observations into the candidate matcher while preserving independence of observation provenance.
+4. **Strict Constraint:** Do not begin S2 without owner sign-off on decision FD-02 (OCR engine spike approval) and freezing benchmark thresholds (FD-03).
+
+---
+
 ```text
 ========================================================================================
 END OF FOODCUE DEVELOPMENT ROADMAP (v2.0)

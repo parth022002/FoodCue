@@ -1,4 +1,12 @@
-export type PantryEventType = "add" | "consume" | "adjust" | "move" | "discard" | "correction" | "import";
+export type PantryEventType =
+  | "add"
+  | "consume"
+  | "adjust"
+  | "move"
+  | "discard"
+  | "correction"
+  | "undo"
+  | "import";
 
 export type PantryLocation = "pantry" | "fridge" | "freezer" | "use_soon";
 
@@ -15,16 +23,29 @@ export interface PantryEvent {
   dateValue?: string;
   occurredAt: string;
   createdAt: string;
-  source: "manual" | "confirmed_label" | "import";
+  source: "manual" | "confirmed_label" | "import" | "undo";
   confirmation: true;
+  targetEventId?: string;
   note?: string;
   schemaVersion: 1;
+}
+
+export interface LocationBalances {
+  pantry: number;
+  fridge: number;
+  freezer: number;
+  use_soon: number;
 }
 
 export interface PantryBalance {
   itemId: string;
   quantity: number;
   unit: string;
+  locationBalances?: LocationBalances;
+  totalStockedIn?: number;
+  totalConsumed?: number;
+  totalDiscarded?: number;
+  lastActivityAt?: string;
 }
 
 export interface PantryItem {
