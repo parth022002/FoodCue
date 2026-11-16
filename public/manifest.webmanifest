@@ -1,10 +1,18 @@
 {
-  "name": "FoodCue",
+  "name": "FoodCue — Know your food. Manage your kitchen.",
   "short_name": "FoodCue",
-  "description": "Understand supported packaged-food labels and organise your kitchen.",
+  "description": "Local-first packaged-food intelligence and kitchen management PWA.",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#F5FAF5",
   "theme_color": "#075A35",
-  "icons": []
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }

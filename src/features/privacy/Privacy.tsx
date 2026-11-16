@@ -155,7 +155,8 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
     try {
       const res = await initializeNeonSchema();
       if (res.success) {
-        setMessage("Neon Postgres tables initialized: foodcue_catalog, foodcue_pantry_events, foodcue_confirmed_labels.");
+        setMessage(res.message);
+        await handleTestNeon();
       } else {
         setErrorMsg(res.message);
       }
@@ -334,6 +335,12 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
             <div className="detail-row">
               <CheckCircle2 className="tiny-icon text-brand-green" />
               <span>Version: <strong>{neonStatus.serverVersion}</strong> ({neonStatus.latencyMs}ms)</span>
+            </div>
+          )}
+          {typeof neonStatus.tablesCount === "number" && (
+            <div className="detail-row">
+              <Database className="tiny-icon text-brand-green" />
+              <span>Cloud Schema: <strong>{neonStatus.tablesCount} tables ready</strong></span>
             </div>
           )}
         </div>
