@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Show, SignInButton, UserButton } from "@clerk/react";
 import { SmartScan } from "../features/smartscan/SmartScan";
 import { Kitchen } from "../features/kitchen/Kitchen";
 import { Reminders } from "../features/reminders/Reminders";
@@ -16,7 +17,8 @@ import {
   BookOpen,
   User,
   Shield,
-  Cloud
+  Cloud,
+  LogIn
 } from "lucide-react";
 
 export type ActiveTab =
@@ -27,6 +29,11 @@ export type ActiveTab =
   | "catalog"
   | "profile"
   | "privacy";
+
+const hasClerkKey = Boolean(
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+);
 
 export function App() {
   const [tab, setTab] = useState<ActiveTab>("scan");
@@ -89,6 +96,23 @@ export function App() {
           >
             <Cloud className="pill-cloud-icon" /> {neonConnected ? "Neon Sync: Live" : "Neon: Ready"}
           </span>
+
+          {hasClerkKey && (
+            <div className="clerk-auth-slot">
+              <Show when="signed-out">
+                <SignInButton mode="modal">
+                  <button className="auth-pill" title="Sign in with Clerk">
+                    <LogIn className="pill-icon" /> Sign In
+                  </button>
+                </SignInButton>
+              </Show>
+              <Show when="signed-in">
+                <div className="clerk-user-avatar">
+                  <UserButton />
+                </div>
+              </Show>
+            </div>
+          )}
         </div>
       </header>
 

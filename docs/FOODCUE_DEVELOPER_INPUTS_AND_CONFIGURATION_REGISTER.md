@@ -39,7 +39,7 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 | **Neon PostgreSQL** | Neon Lakebase (`neon.tech`) | Cloud database backup & multi-device sync (10 tables) | **Active & Connected** | `VITE_NEON_DATABASE_URL` | Public Pooler Endpoint | `.env`, Vercel Dashboard | **Configured & Migrated (10 Tables Active)** |
 | **GitHub API & Repo** | GitHub | Version control, CI/CD Actions, collaborative source | **Required** | `GITHUB_TOKEN` | Secret (CI runner only) | `.github/workflows/ci.yml` | **Configured (`parth022002/FoodCue.git`)** |
 | **OpenRouter API** | OpenRouter (`openrouter.ai`) | Assistive vision/OCR fallback for damaged Indian labels | **Optional (Phase 2)** | `OPENROUTER_API_KEY` | **Strictly Secret** (Edge proxy only) | `.env`, `.env.local`, Vercel Secrets | **Configured & Key Saved in .env** |
-| **Clerk API** | Clerk (`clerk.com`) | Optional user authentication & cross-device identity | **Optional (Phase 2)** | `VITE_CLERK_PUBLISHABLE_KEY`<br>`CLERK_SECRET_KEY` | Publishable in frontend; Secret on Edge | `.env`, Vercel Dashboard | Documented; Anonymous fallback baseline |
+| **Clerk API** | Clerk (`clerk.com`) | Optional user authentication & cross-device identity | **Optional (Phase 2)** | `VITE_CLERK_PUBLISHABLE_KEY`<br>`CLERK_SECRET_KEY` | Publishable in frontend; Secret on Edge | `.env`, `.env.local`, Vercel Secrets | **Configured & Active (App: `app_3MC7...` in .env)** |
 | **Groq API** | Groq (`groq.com`) | Ultra-fast Whisper voice intake for pantry unpack mode | **Optional (Phase 2)** | `GROQ_API_KEY` | **Strictly Secret** (Edge proxy only) | `.env`, `.env.local`, Vercel Secrets | **Configured & Key Saved in .env** |
 | **OpenFoodFacts API** | Open Food Facts | Crowdsourced GTIN metadata fallback lookup | **Optional (Baseline)** | None (Public API) | Public (Requires User-Agent) | `src/adapters/catalogue/` | User-initiated only; compliant User-Agent |
 | **Vercel CLI / Token** | Vercel (`vercel.com`) | Edge CDN deployment, CI/CD preview environments | **Required (Hosting)** | `VERCEL_TOKEN` | Secret (CI/CD only) | GitHub Secrets / Vercel CLI | **Configured (`vercel.json` deployed)** |
@@ -108,12 +108,17 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 ---
 
 ### 4. Clerk API (User Authentication & Multi-Device Sync)
+- **Status:** **Active & Integrated** (Application: `app_3MC7IlXNBCw4NVWOxhqO29cod7r`).
 - **Purpose:** Optional user accounts for household sharing and cross-device sync.
-- **Zero-Account Guarantee:** FoodCue operates 100% locally by default without requiring an account. Users only encounter Clerk if they explicitly click *"Enable Multi-Device Cloud Sync"*.
+- **Zero-Account Guarantee:** FoodCue operates 100% locally by default without requiring an account. Users only encounter Clerk if they explicitly click *"Sign In"* or *"Enable Multi-Device Cloud Sync"*.
 - **Key Configuration:**
-  - `VITE_CLERK_PUBLISHABLE_KEY`: `pk_test_...` or `pk_live_...` (Exposed to client for `<ClerkProvider>`)
+  - `VITE_CLERK_PUBLISHABLE_KEY`: `pk_test_...` (Exposed to client for `<ClerkProvider>`)
   - `CLERK_SECRET_KEY`: `sk_test_...` (Server/Edge Function only for token verification)
   - `CLERK_WEBHOOK_SECRET`: `whsec_...` (Synchronizes user creation to `foodcue_users` table in Neon)
+- **Client Integration:**
+  - Package: `@clerk/react` (Core 3)
+  - Global wrapper: `<ClerkProvider publishableKey={...}>` in `src/main.tsx`
+  - Auth Controls: `<Show when="signed-out"><SignInButton /></Show>` and `<Show when="signed-in"><UserButton /></Show>` in topbar and Profile view.
 
 ---
 

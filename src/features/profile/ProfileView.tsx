@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { User, ShieldAlert, Sparkles, Check, Trash2 } from "lucide-react";
+import { Show, SignInButton, UserButton } from "@clerk/react";
+import { User, ShieldAlert, Sparkles, Check, Trash2, Cloud } from "lucide-react";
 
 export interface UserFoodProfile {
   avoidAllergens: string[];
@@ -7,6 +8,11 @@ export interface UserFoodProfile {
   calmMode: boolean;
   dietaryPattern: string;
 }
+
+const hasClerkKey = Boolean(
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+);
 
 const COMMON_AVOID_ALLERGENS = [
   "Gluten / Wheat",
@@ -124,6 +130,38 @@ export function ProfileView({
           Preferences entered here are self-reported and do not constitute a clinical diagnosis or medical prescription. FoodCue highlights matched label evidence but cannot certify individual medical safety.
         </p>
       </div>
+
+      {/* Clerk Multi-Device Cloud Sync Card */}
+      {hasClerkKey && (
+        <div className="setting-card mb-20" style={{ border: "1px solid #C8E6C9", background: "#F4FBF4" }}>
+          <div className="setting-info">
+            <div className="setting-title-row">
+              <Cloud className="btn-icon text-brand-green" aria-hidden="true" />
+              <h3>Household Multi-Device Sync (Clerk)</h3>
+            </div>
+            <p className="tiny text-muted">
+              <Show when="signed-in">
+                Signed in with Clerk. Your household dietary avoid-list and pantry stock sync across all your devices.
+              </Show>
+              <Show when="signed-out">
+                Operating anonymously in offline local storage. Sign in with Clerk to back up and sync your household dietary avoid-list across devices.
+              </Show>
+            </p>
+          </div>
+          <div>
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="primary-button compact-btn">
+                  Sign In / Sign Up
+                </button>
+              </SignInButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
+          </div>
+        </div>
+      )}
 
       {/* Calm Mode Switch */}
       <div className="setting-card">

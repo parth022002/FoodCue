@@ -17,6 +17,8 @@
     "security:audit": "npm audit --omit=dev"
   },
   "dependencies": {
+    "@clerk/clerk-react": "5.61.3",
+    "@clerk/react": "6.18.8",
     "@neondatabase/serverless": "1.2.1",
     "@sec-ant/zxing-wasm": "2.2.0",
     "@vitejs/plugin-react": "4.3.4",
