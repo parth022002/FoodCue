@@ -103,8 +103,14 @@ npm run dev
 # Run TypeScript strict typecheck (0 errors)
 npm run typecheck
 
-# Run Vitest automated unit test suite (17/17 tests passing)
+# Run Vitest automated unit test suite (85/85 tests passing across 15 suites)
 npm test
+
+# Run ESLint check (0 errors, 0 warnings)
+npm run lint
+
+# Run database schema migrations
+npm run db:migrate
 
 # Build production bundle
 npm run build
@@ -112,26 +118,42 @@ npm run build
 
 ---
 
+## Backend Architecture & Serverless API (Step 3 & Step 4)
+
+FoodCue integrates a Vercel-compatible serverless backend designed to support optional cloud sync and Clerk authentication without compromising the application's local-first baseline:
+
+- **Serverless API Routes:**
+  - `GET /api/health`: Public probe executing `SELECT 1` against Neon. Never exposes credentials.
+  - `GET /api/me`: Authenticated endpoint returning user profile derived from verified Clerk Bearer token.
+  - `PATCH /api/me`: Updates allowed user profile fields (`displayName`, `username`).
+  - `POST /api/webhooks/clerk`: Prepared fail-closed integration boundary for user lifecycle ingestion (503 until signing secret configured).
+- **Server-Side Token Verification:** Cryptographic session verification via `@clerk/backend` (`verifyToken`). Browser-supplied user IDs are strictly rejected.
+- **Neon Dual-Endpoint Connection:** Reusable client pooling (`@neondatabase/serverless`) for runtime requests and unpooled direct connection for DDL migrations.
+
+---
+
 ## Neon Lakebase PostgreSQL Setup
 
-FoodCue includes a pre-configured serverless PostgreSQL connection to Neon in AWS Singapore. All 10 tables are created and seeded:
+FoodCue includes a pre-configured serverless PostgreSQL connection to Neon in AWS Singapore. All 11 tables are active, seeded, and configured with multi-tenancy:
 
 ```bash
-# Run automated database schema migration and seeding script
-node scripts/migrate-neon.mjs
+# Run automated database schema migration and version tracking
+npm run db:migrate
 ```
 
 ### Active Database Tables
-- `foodcue_users`: Device IDs & Clerk user sessions
-- `foodcue_profiles`: Allergen avoidances, diet, Calm Mode
+- `foodcue_users`: Device IDs, UUID PK, & verified Clerk user identities
+- `foodcue_households`: Clerk Organizations mapping table for family/household sharing
+- `foodcue_profiles`: Allergen avoidances, diet, Calm Mode, household tenancy
 - `foodcue_catalog`: Verified packaged food registry with FSSAI licenses
 - `foodcue_confirmed_labels`: Physical pack verification records & hashes
-- `foodcue_pantry_items`: Projected kitchen stock state
-- `foodcue_pantry_events`: Append-only immutable event ledger
-- `foodcue_reminders`: Expiry and opened date tracking
-- `foodcue_shopping_list`: Replenishment lists & depleted stock
+- `foodcue_pantry_items`: Projected kitchen stock state with `household_id`
+- `foodcue_pantry_events`: Append-only immutable event ledger with `household_id`
+- `foodcue_reminders`: Expiry and opened date tracking with `household_id`
+- `foodcue_shopping_list`: Replenishment lists & depleted stock with `household_id`
 - `foodcue_intelligence_rules`: Deterministic FSSAI rule mappings
 - `foodcue_audit_log`: Tamper-evident privacy & security ledger
+- `foodcue_schema_migrations`: Version-controlled migration history ledger
 
 ---
 
@@ -148,7 +170,11 @@ FoodCue is pre-configured for instant zero-cash deployment to **Vercel**:
 
 ## Project Documentation
 
-- [`docs/FOODCUE_DEVELOPMENT_CHECKLIST.md`](docs/FOODCUE_DEVELOPMENT_CHECKLIST.md): 115-task development, QA, and release readiness checklist.
+- [`docs/BACKEND_ARCHITECTURE.md`](docs/BACKEND_ARCHITECTURE.md): Backend API, serverless architecture, request flows, and security boundaries.
+- [`docs/CLERK_AUTHENTICATION.md`](docs/CLERK_AUTHENTICATION.md): Server-side token verification, Clerk Organizations, and identity mapping.
+- [`docs/NEON_DATABASE_SETUP.md`](docs/NEON_DATABASE_SETUP.md): Neon PostgreSQL setup, pooled vs. unpooled endpoints, and migration runner.
+- [`docs/FOODCUE_DATABASE_SCHEMA.md`](docs/FOODCUE_DATABASE_SCHEMA.md): Complete data dictionary for all 11 tables and constraints.
+- [`docs/FOODCUE_DEVELOPMENT_CHECKLIST.md`](docs/FOODCUE_DEVELOPMENT_CHECKLIST.md): Master development, QA, and release readiness checklist.
 - [`docs/FOODCUE_DEVELOPER_INPUTS_AND_CONFIGURATION_REGISTER.md`](docs/FOODCUE_DEVELOPER_INPUTS_AND_CONFIGURATION_REGISTER.md): Master register for Neon, GitHub, OpenRouter, Clerk, Groq, and OpenFoodFacts APIs.
 - [`docs/schema.sql`](docs/schema.sql): Complete standalone PostgreSQL DDL schema.
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md): Real-time implementation audit and component inventory.

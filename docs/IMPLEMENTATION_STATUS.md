@@ -77,48 +77,62 @@ FoodCue has successfully achieved the complete exit criteria for **Phase 0 (S0 �
 
 ```text
 ========================================================================================
-AUTOMATED TEST SUITE SUMMARY (30/30 PASSED)
+AUTOMATED TEST SUITE SUMMARY (85/85 PASSED)
 ========================================================================================
 1. src/domain/rules/gtin.test.ts (4 tests passed)
    - Validates GTIN-8, GTIN-12, GTIN-13, GTIN-14 check digits.
-   - Preserves leading zeroes and rejects invalid check digits.
-
 2. src/domain/rules/payloadClassifier.test.ts (4 tests passed)
-   - Classifies GS1 Digital Link, standard HTTPS, and plain text.
-   - Flags unsafe schemes (javascript:, data:, file:) and prevents auto-navigation.
-
+   - Classifies GS1 Digital Link, standard HTTPS, and flags unsafe schemes.
 3. src/domain/contracts/confirmedLabel.test.ts (3 tests passed)
    - Enforces physical pack confirmation boundary.
-   - Rejects unconfirmed candidates or missing critical panels.
-
 4. src/domain/rules/foodIntelligenceEngine.test.ts (3 tests passed)
    - Evaluates 6 distinct allergen states deterministically.
-   - Parses INS additive codes and flags manufacturer claim conflicts.
-
 5. src/domain/services/pantryLedger.test.ts (8 tests passed)
-   - Appends confirmed events and projects balances.
-   - Enforces event idempotency on unique eventId.
-   - Rejects unconfirmed events and zero/non-finite deltas.
-   - Blocks consumption causing negative stock balance.
-   - Creates valid compensating undo events and blocks duplicate undo.
-   - Reconstructs projections accurately from chronological history.
-
+   - Append-only event ledger, projected balances, compensating undo events.
 6. src/adapters/storage/database.test.ts (8 tests passed)
-   - Initializes database and verifies schema version 2 and store health.
-   - Performs CRUD operations on pantryEvents.
-   - Queries records by index (itemId index on pantryEvents).
-   - Exports a valid versioned FoodCueBackup package.
-   - Imports backup package in merge and replace modes.
-   - Rejects corrupt or incompatible import files safely.
-   - Clears all data atomically and verifies zero records remaining.
-   - Returns structured storage quota estimates.
+   - IndexedDB store health, versioned backup export/import, atomic factory reset.
+7. src/adapters/ocr/localOcrAdapter.test.ts (4 tests passed)
+   - Off-main-thread Web Worker OCR pre-processing and keyword tokenization.
+8. src/domain/rules/gs1Parser.test.ts (13 tests passed)
+   - 13/13 official GS1 test vectors passing (AIs 01, 10, 15, 17, 21, Digital Link).
+9. src/domain/services/evidenceResolver.test.ts (3 tests passed)
+   - Observation provenance preservation and conflict resolution.
+10. src/domain/services/candidateMatcher.test.ts (3 tests passed)
+   - Ranking formula Q = S * min(1, E / 0.70) and ConfirmedLabel gates.
+11. test/server/config/environment.test.ts (8 tests passed)
+   - Server environment validation, missing key rejections, secret leak prevention.
+12. test/server/database/client.test.ts (3 tests passed)
+   - Neon SELECT 1 health check, latency measurement, parameterized queries.
+13. test/server/auth/clerk.test.ts (8 tests passed)
+   - Bearer token extraction, @clerk/backend verification, spoofed ID rejection.
+14. test/server/services/user.service.test.ts (7 tests passed)
+   - Idempotent profile provisioning, soft-delete enforcement, username rules.
+15. test/server/api/endpoints.test.ts (6 tests passed)
+   - Public GET /api/health (200), authenticated GET /api/me (401 without token), fail-closed POST /api/webhooks/clerk (503).
 ========================================================================================
 ```
 
 ---
 
+## 4. Step 3 & Step 4 Backend & Database Implementation Status
+
+| Step | Requirement | Status | Evidence & Implementation File |
+|---|---|---|---|
+| **Step 3** | **Backend Environment Validation** | **Complete** | `src/server/config/environment.ts` — Validates `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CLERK_SECRET_KEY` via Zod. |
+| **Step 3** | **Neon Database Connection Pooler** | **Complete** | `src/server/database/client.ts` — Dual connection pooling (`@neondatabase/serverless`). |
+| **Step 3** | **Health Endpoint (`GET /api/health`)** | **Complete** | `api/health.ts` — Returns `{ status: "ok", application: "foodcue", database: "connected" }`. |
+| **Step 3** | **Clerk Backend SDK Integration** | **Complete** | `src/server/auth/clerk.ts` — Server-side session verification via `@clerk/backend` `verifyToken`. |
+| **Step 3** | **Authentication Middleware** | **Complete** | `src/server/auth/authorization.ts` — Bearer token extraction and identity spoof rejection. |
+| **Step 4** | **User Database Schema** | **Complete** | `src/server/database/schema/user.schema.ts` — `foodcue_users` (UUID PK, `clerk_user_id`, `deleted_at`). |
+| **Step 4** | **Version-Controlled Migrations** | **Complete** | `src/server/database/migrations/001_initial_users.sql` & `runner.ts` — Idempotent migration ledger. |
+| **Step 4** | **User Repository & Service** | **Complete** | `src/server/database/repositories/user.repository.ts` & `src/server/services/user.service.ts`. |
+| **Step 4** | **Authenticated Profile API (`GET /api/me`)** | **Complete** | `api/me.ts` — Returns public user profile derived strictly from verified Clerk Bearer token. |
+| **Step 4** | **Clerk Webhook Boundary Preparation** | **Complete** | `api/webhooks/clerk.ts` — Fail-closed 503 boundary awaiting owner signing secret configuration. |
+
+---
+
 ```text
 ========================================================================================
-END OF FOODCUE IMPLEMENTATION STATUS & VERIFICATION (v2.1)
+END OF FOODCUE IMPLEMENTATION STATUS & VERIFICATION (v3.0)
 ========================================================================================
 ```
