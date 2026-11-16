@@ -50,14 +50,26 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 # Section B: Deep-Dive API Specifications & Credentials
 
 ### 1. Neon Lakebase PostgreSQL Connection
-- **Endpoint:** `ep-snowy-mode-b3jn52y5-pooler.c-4.ap-southeast-1.aws.neon.tech`
 - **Region:** Southeast Asia (AWS Singapore `ap-southeast-1`) — Optimized for sub-50ms latency across India.
 - **Protocol:** Serverless WebSocket / HTTP connection pooler (`sslmode=require&channel_binding=require`).
 - **Database Driver:** `@neondatabase/serverless` (v0.10.4 / v1.2.1) — Executes queries over stateless HTTP fetch; zero raw TCP socket blocks on mobile networks or corporate firewalls.
-- **Client Configuration:**
+- **Dual Endpoints (Pooled vs. Unpooled):**
+  1. **Pooled Connection (Serverless HTTP/WebSocket Client & Edge Functions):**
+     - Endpoint: `ep-snowy-mode-b3jn52y5-pooler.c-4.ap-southeast-1.aws.neon.tech`
+     - Env Var: `VITE_NEON_DATABASE_URL` / `NEON_DATABASE_URL_POOLED`
+     - Purpose: Web clients, Edge handlers, low-latency stateless HTTP queries without connection spikes.
+  2. **Unpooled Direct Connection (Direct TCP / Schema Migrations & DDL):**
+     - Endpoint: `ep-snowy-mode-b3jn52y5.c-4.ap-southeast-1.aws.neon.tech`
+     - Env Var: `NEON_DATABASE_URL_UNPOOLED` / `DATABASE_URL_UNPOOLED`
+     - Purpose: DDL operations, table creation, migrations, and scripts requiring direct TCP access without transaction pooler restrictions.
+- **Environment Configuration:**
   ```env
+  # Pooled Endpoint (Client & Edge Sync)
   VITE_NEON_DATABASE_URL="postgresql://neondb_owner:npg_cKRineBy5q8d@ep-snowy-mode-b3jn52y5-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
   VITE_ENABLE_NEON_SYNC="true"
+
+  # Unpooled Direct Endpoint (Migrations & DDL)
+  NEON_DATABASE_URL_UNPOOLED="postgresql://neondb_owner:npg_cKRineBy5q8d@ep-snowy-mode-b3jn52y5.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
   ```
 - **Live Active Schema (10 Tables Ready):**
   1. `foodcue_users` (Local & Clerk authenticated users)

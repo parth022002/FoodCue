@@ -1,7 +1,11 @@
 // Complete Production Schema Migration & Seeding for Neon Lakebase Postgres
 import { neon } from "@neondatabase/serverless";
 
-const databaseUrl = process.env.VITE_NEON_DATABASE_URL || "postgresql://neondb_owner:npg_cKRineBy5q8d@ep-snowy-mode-b3jn52y5-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const databaseUrl =
+  process.env.NEON_DATABASE_URL_UNPOOLED ||
+  process.env.DATABASE_URL_UNPOOLED ||
+  process.env.VITE_NEON_DATABASE_URL ||
+  "postgresql://neondb_owner:npg_cKRineBy5q8d@ep-snowy-mode-b3jn52y5.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
 
 console.log("Connecting to Neon Postgres...");
 const sql = neon(databaseUrl);
