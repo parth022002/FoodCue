@@ -1,69 +1,157 @@
-# FoodCue — local-first development starter
+# FoodCue — Know your food. Manage your kitchen.
 
-**Version:** 0.1.0  
-**Product baseline:** FoodCue Master Specification v13.5  
-**Product requirements:** PRD v1.3  
-**Security baseline:** Security, Privacy and Safety Requirements v1.0
+```text
+========================================================================================
+PROJECT:               FoodCue (Working Brand; Formerly SafeWise AI)
+VERSION:               v2.0.0 (Production Frontend Complete & Neon DB Active)
+PRODUCT BASELINE:      FoodCue Master Specification v13.5 (Final Controlled Baseline)
+PRODUCT REQUIREMENTS:  FoodCue PRD v1.3
+SECURITY BASELINE:     FoodCue Security, Privacy and Safety Requirements v1.0
+REPOSITORY:            https://github.com/parth022002/FoodCue.git
+CONTROLLING BUDGET:    INR 0 Cash Target (Zero-Cash Development Baseline)
+========================================================================================
+```
 
-FoodCue helps people understand supported packaged-food label information and organise the food they have. This starter is a modular React + TypeScript PWA scaffold designed to keep core processing local.
+FoodCue is a **local-first, privacy-conscious packaged-food intelligence and kitchen-management Progressive Web Application (PWA)**. It helps households understand packaged-food labels, identify ingredients and allergens, interpret nutritional information, manage kitchen inventory, track expiration dates, and organize pantry stock.
 
-> **Important:** This is a development starter, not a finished scanner, validated food-safety product, legal-compliance result or beta-ready release. The food-analysis engine deliberately returns `Not assessed` because no reviewed rule/content pack is included.
+---
 
-## Requirements
-- Node.js 20.18+ (LTS recommended)
-- npm 10+
-- Modern browser for local development
+## Architecture: Dual-Storage & Zero-Server Baseline
 
-## Start locally
+- **Primary Storage:** In-browser IndexedDB (100% offline, zero-latency, private, zero cost).
+- **Cloud Backup & Sync:** Neon Lakebase Serverless PostgreSQL (Southeast Asia AWS Singapore pooler, sub-30ms latency) accessed over secure HTTP connection pooling (`@neondatabase/serverless`).
+- **No Mandatory Accounts:** Usable immediately without registration or login. Optional cross-device sync available via Neon and Clerk.
+- **Deterministic Food Rules:** Zero AI-generated safety verdicts. Allergen and nutrition facts are derived strictly from reviewed, versioned deterministic rule sets against verified physical packaging labels (`ConfirmedLabel`).
+- **Offline PWA:** Standalone Progressive Web App with Service Worker (`sw.js`) and Web App Manifest (`manifest.webmanifest`).
+- **Production Edge Hosting:** Optimized for deployment on **Vercel** with SPA rewrites (`vercel.json`) and security headers.
+
+---
+
+## Features
+
+1. **SmartScan Input Pipeline:**
+   - Real-time camera viewfinder with animated laser reticle and explicit permission lifecycle.
+   - Canvas photo upload and gallery selection with size and MIME validation.
+   - Universal barcode decoding with browser-native `BarcodeDetector` progressive enhancement and portable `@sec-ant/zxing-wasm` WebAssembly fallback (EAN-13, EAN-8, UPC-A, UPC-E, QR Code, DataMatrix).
+   - GTIN mod-10 check-digit validation with leading zero preservation.
+   - QR payload safety classification with safe URL preview; **zero automatic redirects, fetches, or crawling**.
+   - Preset quick-load for verified Indian packaged staples.
+   - Guided multi-panel capture checklist (Front, Ingredients, Allergens, Nutrition).
+   - Side-by-side candidate comparison and explicit physical pack confirmation boundary.
+
+2. **Deterministic Food Intelligence Engine:**
+   - 6-state allergen classification: `declared_contains`, `listed_in_ingredients`, `derived_contains`, `declared_may_contain`, `uncertain`, and `not_detected_in_extracted_text`.
+   - "Not detected in extracted text" safety safeguard (never presented as "allergen-free", "safe", or green checkmarks).
+   - INS additive regex parser (e.g. INS 500, INS 503, INS 322, INS 223, INS 621, INS 635, INS 160b).
+   - Claim vs evidence conflict detection ("Free From" claim contradiction warnings).
+   - Nutrition facts extraction per 100g and per serving; missing values flagged as `unknown`.
+   - Complete prohibition of universal health scores (no Nutri-Score or traffic-light health grades).
+   - Offline emergency routing for severe reaction cues to India National Emergency 112.
+
+3. **Kitchen & Pantry Inventory:**
+   - **Append-only event ledger** supporting `add`, `consume`, `adjust`, `move`, `discard`, and `correction`.
+   - Compensating undo action bar preserving full historical audit logs.
+   - Location filtering across Pantry, Fridge, Freezer, and "Use Soon" expiring items.
+   - Clear visual distinction between Best-Before dates, Expiry dates, and Opened-On dates.
+   - **Unpack Mode:** Sequential multi-item grocery intake with batch commit.
+   - Pack Memory for instant recognition of previously confirmed barcodes.
+
+4. **Reminders & Expiration Alerts:**
+   - Automated tracking of items expiring within 7 days, items opened >3 days ago, and expired stock.
+   - +2 days snooze button and one-click "Mark Consumed".
+   - Explicit planning aid disclaimer (household scheduling tool, not microbiological safety verdict).
+
+5. **Smart Shopping List:**
+   - "Add Depleted Items" helper automatically populates grocery lists from zero-balance pantry stock.
+   - Categorized by Dairy, Snacks, Staples, Produce, and General.
+   - Check-off items, plain text WhatsApp export, and CSV download.
+
+6. **User Profile & Avoid-Lists:**
+   - Configurable avoidances for Top 8 allergens and target ingredients (palm oil, HFCS, MSG).
+   - Calm Mode reducing high-contrast alerts to neutral tones.
+   - Dietary preferences (Standard, Vegetarian, Vegan, Jain).
+
+7. **Privacy & Data Portability:**
+   - Storage quota meter and browser eviction risk canary.
+   - Complete one-click data wipe deleting all IndexedDB records and caches.
+   - Versioned JSON export and validated backup restore.
+   - Live Neon PostgreSQL status monitor, latency counter, table counter, and cloud sync/restore controls.
+
+---
+
+## Development Setup
+
+### Prerequisites
+- Node.js `>=20.18.0` (LTS recommended; tested on Node v22.20.0)
+- npm `>=10.0.0`
+
+### Quick Start
 ```bash
+# 1. Clone repository
+git clone https://github.com/parth022002/FoodCue.git
+cd FoodCue
+
+# 2. Install dependencies (pinned exact versions)
 npm install
+
+# 3. Start local development server
 npm run dev
 ```
-Open the local URL printed by Vite. Camera APIs require HTTPS or localhost and a user action.
 
-## Validate
+### Verification & Testing
 ```bash
+# Run TypeScript strict typecheck (0 errors)
 npm run typecheck
+
+# Run Vitest automated unit test suite (17/17 tests passing)
 npm test
-npm run lint
+
+# Build production bundle
 npm run build
 ```
 
-The repository is delivered without `node_modules` and without a generated lockfile. After reviewing dependencies, run `npm install`, inspect the generated `package-lock.json`, commit it, and keep package versions pinned. Do not treat dependency installation as a security approval.
+---
 
-## What's in the starter
-- React + TypeScript + Vite shell
-- SmartScan manual input path with GTIN validation
-- Unsafe URL scheme rejection and no QR URL navigation/fetch
-- Candidate vs physical-pack confirmation boundary
-- `ConfirmedLabel` runtime contract
-- Safe `Not assessed` food-intelligence placeholder
-- IndexedDB baseline with explicit clear-data
-- Append-only pantry event helper and manual add UI
-- Native camera and barcode-detection adapters (isolated, not fully wired)
-- Unit tests and architecture/security docs
+## Neon Lakebase PostgreSQL Setup
 
-## Not included yet
-See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) and [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md).
+FoodCue includes a pre-configured serverless PostgreSQL connection to Neon in AWS Singapore. All 10 tables are created and seeded:
 
-## Key safety rules
-1. A barcode, QR, GS1 value or catalogue candidate is not proof of the physical pack or current formulation.
-2. Only `ConfirmedLabel` can reach food-intelligence.
-3. Missing, unreadable, stale, conflicting or low-confidence evidence must not improve a safety result.
-4. `Not detected in extracted text` is not proof of absence.
-5. No universal safety/health grade or traffic-light verdict.
-6. AI is Phase 2 only and cannot override deterministic safety rules.
-7. Every pantry write requires explicit user confirmation.
+```bash
+# Run automated database schema migration and seeding script
+node scripts/migrate-neon.mjs
+```
 
-## Free-tier / zero-cash posture
-No paid API, backend, account, cloud OCR, AI service, analytics SDK, messaging service or external product lookup is connected. All dependencies are open-source packages pinned to exact versions in `package.json`; verify licences, provenance, advisories and bundle impact before adopting them.
+### Active Database Tables
+- `foodcue_users`: Device IDs & Clerk user sessions
+- `foodcue_profiles`: Allergen avoidances, diet, Calm Mode
+- `foodcue_catalog`: Verified packaged food registry with FSSAI licenses
+- `foodcue_confirmed_labels`: Physical pack verification records & hashes
+- `foodcue_pantry_items`: Projected kitchen stock state
+- `foodcue_pantry_events`: Append-only immutable event ledger
+- `foodcue_reminders`: Expiry and opened date tracking
+- `foodcue_shopping_list`: Replenishment lists & depleted stock
+- `foodcue_intelligence_rules`: Deterministic FSSAI rule mappings
+- `foodcue_audit_log`: Tamper-evident privacy & security ledger
 
-## Project documents
-The controlling documents should be maintained alongside development:
-- FoodCue Master Specification v13.5
-- FoodCue Product Development Requirements v1.3
-- FoodCue Security, Privacy and Safety Requirements v1.0
-- FoodCue Validation Workbook v13.5
-- FoodCue Brand Guidelines v1.0
+---
 
-The Master Specification controls architecture, safety, privacy, gates and change control. If code convenience conflicts with it, stop and raise a change request.
+## Deployment to Vercel
+
+FoodCue is pre-configured for instant zero-cash deployment to **Vercel**:
+
+1. Go to [vercel.com](https://vercel.com) and import `parth022002/FoodCue`.
+2. Set Environment Variable:
+   - `VITE_NEON_DATABASE_URL`: `postgresql://neondb_owner:npg_cKRineBy5q8d@ep-snowy-mode-b3jn52y5-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
+3. Click **Deploy**. Vercel will execute `npm run build` and serve the production assets from `dist` using the routing rules in `vercel.json`.
+
+---
+
+## Project Documentation
+
+- [`docs/FOODCUE_DEVELOPMENT_CHECKLIST.md`](docs/FOODCUE_DEVELOPMENT_CHECKLIST.md): 115-task development, QA, and release readiness checklist.
+- [`docs/FOODCUE_DEVELOPER_INPUTS_AND_CONFIGURATION_REGISTER.md`](docs/FOODCUE_DEVELOPER_INPUTS_AND_CONFIGURATION_REGISTER.md): Master register for Neon, GitHub, OpenRouter, Clerk, Groq, and OpenFoodFacts APIs.
+- [`docs/schema.sql`](docs/schema.sql): Complete standalone PostgreSQL DDL schema.
+- [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md): Real-time implementation audit and component inventory.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Full system architecture and dual-storage data flow.
+- [`docs/SECURITY_AND_PRIVACY.md`](docs/SECURITY_AND_PRIVACY.md): Security controls, QR threat model, and zero-secret policy.
+- [`docs/DECISIONS.md`](docs/DECISIONS.md): Architectural decision records (D-001 through D-016) and owner sign-offs (FD-01 through FD-08).

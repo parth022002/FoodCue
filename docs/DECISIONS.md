@@ -33,6 +33,8 @@ The following baseline decisions were formally established in Master Specificati
 | **D-014** | 2026-11-16 | AI, web research, and medical profiles remain Phase 2 / deferred | Class 1 (Fundamental) | Zero-cash, privacy, and food safety constraints | Founder | FC-AI, FC-WEB, FC-PROF-022 | **Accepted** |
 | **D-015** | 2026-11-16 | English-first OCR; regional scripts require model benchmark and qualified review | Class 1 (Fundamental) | Browser model evidence not yet established for Devanagari | Founder | SW-OCR-003, SW-ACC-017 | **Accepted** |
 | **D-016** | 2026-11-16 | Master Specification v13.5 and Validation Workbook v13.5 are active control pair | Class 1 (Fundamental) | Version reconciliation across all project materials | Founder | All baseline items | **Accepted** |
+| **D-017** | 2026-11-16 | Dual-Storage architecture with Neon Serverless Postgres for optional cloud sync | Class 1 (Fundamental) | Local-first IndexedDB remains primary; Neon HTTP pooler enables multi-device backup | Founder | Database & Cloud | **Accepted** |
+| **D-018** | 2026-11-16 | Deploy to Vercel ONLY for static PWA edge hosting; reject Render | Class 2 (Scope) | Avoid Render 50s cold-start spin-down on mobile; Vercel provides native SPA rewrites | Founder | Hosting & DevOps | **Accepted** |
 
 ---
 
