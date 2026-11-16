@@ -407,8 +407,8 @@ export async function syncProfileToNeon(profile: CloudUserProfile): Promise<void
     [
       profile.profileId,
       profile.userId,
-      profile.allergensToAvoid as any,
-      profile.ingredientsToAvoid as any,
+      profile.allergensToAvoid as unknown as string,
+      profile.ingredientsToAvoid as unknown as string,
       profile.dietaryPreference,
       profile.calmMode,
       profile.theme,

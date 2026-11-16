@@ -840,7 +840,7 @@ export function SmartScan({
                     <select
                       id="p-loc"
                       value={pantryLocation}
-                      onChange={(e) => setPantryLocation(e.target.value as any)}
+                      onChange={(e) => setPantryLocation(e.target.value as "Pantry" | "Fridge" | "Freezer")}
                     >
                       <option>Pantry</option>
                       <option>Fridge</option>

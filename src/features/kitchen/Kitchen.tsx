@@ -433,7 +433,7 @@ export function Kitchen({ onOpenSmartScan }: { onOpenSmartScan?: () => void }) {
                   <select
                     id="f-loc"
                     value={formLocation}
-                    onChange={(e) => setFormLocation(e.target.value as any)}
+                    onChange={(e) => setFormLocation(e.target.value as "Pantry" | "Fridge" | "Freezer")}
                   >
                     <option>Pantry</option>
                     <option>Fridge</option>
@@ -445,7 +445,7 @@ export function Kitchen({ onOpenSmartScan }: { onOpenSmartScan?: () => void }) {
                   <select
                     id="f-dtype"
                     value={formDateType}
-                    onChange={(e) => setFormDateType(e.target.value as any)}
+                    onChange={(e) => setFormDateType(e.target.value as "best_before" | "expiry" | "opened_on")}
                   >
                     <option value="best_before">Best Before</option>
                     <option value="expiry">Expiry</option>
