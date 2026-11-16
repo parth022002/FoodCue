@@ -1,0 +1,10 @@
+{
+  "name": "FoodCue",
+  "short_name": "FoodCue",
+  "description": "Understand supported packaged-food labels and organise your kitchen.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5FAF5",
+  "theme_color": "#075A35",
+  "icons": []
+}
