@@ -2,7 +2,7 @@ import { checkDatabaseHealth } from "../src/server/database/client";
 import { jsonResponse } from "../src/server/utils/response";
 
 export const config = {
-  runtime: "edge"
+  runtime: "nodejs"
 };
 
 /**

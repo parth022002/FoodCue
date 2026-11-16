@@ -38,6 +38,23 @@ export function errorResponse(error: unknown): Response {
     );
   }
 
+  const err = error as { message?: unknown; errorCode?: unknown; statusCode?: unknown } | null | undefined;
+  if (
+    err &&
+    typeof err.message === "string" &&
+    typeof err.statusCode === "number" &&
+    err.statusCode >= 400 &&
+    err.statusCode < 600
+  ) {
+    return jsonResponse(
+      {
+        error: err.message,
+        code: typeof err.errorCode === "string" ? err.errorCode : "SERVER_ERROR"
+      },
+      err.statusCode
+    );
+  }
+
   // Generic fallback without exposing internal stack traces
   return jsonResponse(
     {

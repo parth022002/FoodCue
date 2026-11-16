@@ -3,7 +3,7 @@ import { userService } from "../src/server/services/user.service";
 import { jsonResponse, errorResponse, parseRequest } from "../src/server/utils/response";
 
 export const config = {
-  runtime: "edge"
+  runtime: "nodejs"
 };
 
 /**
