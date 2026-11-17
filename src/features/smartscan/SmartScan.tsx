@@ -497,54 +497,65 @@ export function SmartScan({
   }
 
   return (
-    <section className="panel" aria-labelledby="smartscan-heading">
+    <section className="panel smartscan-panel" aria-labelledby="smartscan-heading">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">PRIMARY SCAN WORKFLOW</p>
-          <h2 id="smartscan-heading" className="panel-title-with-icon">
-            <Sparkles className="title-icon text-brand-lime" aria-hidden="true" />
-            SmartScan Intelligence
-          </h2>
+          <div className="eyebrow-badge mb-6">
+            <Sparkles className="badge-icon-xs text-brand" />
+            <span>PRIMARY SCAN WORKFLOW</span>
+          </div>
+          <h1 id="smartscan-heading" className="panel-title-with-icon">
+            SmartScan
+          </h1>
         </div>
         <span className="status-tag">Multi-Modal Capture</span>
       </div>
 
-      <p className="muted">
-        Decode barcodes, inspect QR security, verify packaging candidates side-by-side, and evaluate deterministic FSSAI allergen and nutrition intelligence.
+      <p className="panel-subtitle-text">
+        Scan a packaged food label to identify product information, review ingredients and understand allergen and nutrition details.
       </p>
 
-      {pantryNotice && <div className="alert info" role="status">{pantryNotice}</div>}
-      {errorMessage && <div className="alert error" role="alert">{errorMessage}</div>}
+      {pantryNotice && <div className="alert-banner alert-success mb-20" role="status">{pantryNotice}</div>}
+      {errorMessage && <div className="alert-banner alert-danger mb-20" role="alert">{errorMessage}</div>}
 
       {/* Input Mode Selector */}
       {!confirmedLabel && (
         <div className="scan-mode-tabs" role="tablist" aria-label="Capture mode selection">
           <button
-            className={`mode-tab ${activeMode === "manual" ? "active" : ""}`}
-            onClick={() => {
-              setActiveMode("manual");
-              stopLiveCamera();
-            }}
-          >
-            <Keyboard className="tab-icon" /> Manual & Presets
-          </button>
-          <button
+            type="button"
             className={`mode-tab ${activeMode === "camera" ? "active" : ""}`}
             onClick={() => {
               setActiveMode("camera");
               startLiveCamera();
             }}
+            role="tab"
+            aria-selected={activeMode === "camera"}
           >
-            <Camera className="tab-icon" /> Live Camera
+            <Camera className="tab-icon" /> Scan with Camera
           </button>
           <button
+            type="button"
             className={`mode-tab ${activeMode === "upload" ? "active" : ""}`}
             onClick={() => {
               setActiveMode("upload");
               stopLiveCamera();
             }}
+            role="tab"
+            aria-selected={activeMode === "upload"}
           >
-            <Upload className="tab-icon" /> Photo / Gallery
+            <Upload className="tab-icon" /> Upload Photo
+          </button>
+          <button
+            type="button"
+            className={`mode-tab ${activeMode === "manual" ? "active" : ""}`}
+            onClick={() => {
+              setActiveMode("manual");
+              stopLiveCamera();
+            }}
+            role="tab"
+            aria-selected={activeMode === "manual"}
+          >
+            <Keyboard className="tab-icon" /> Enter Manually
           </button>
         </div>
       )}

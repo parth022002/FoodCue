@@ -42,3 +42,7 @@ if (!process.env.DATABASE_URL_UNPOOLED) {
 if (!process.env.CLERK_SECRET_KEY) {
   process.env.CLERK_SECRET_KEY = "sk_test_p8vtXbEcPxJ7571sOrvBvjS8mG8GwickTGFX1jQB2c";
 }
+
+if (typeof window !== "undefined") {
+  window.scrollTo = () => {};
+}

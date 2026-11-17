@@ -2,21 +2,23 @@ import { useState, useEffect } from "react";
 import {
   Show,
   SignInButton,
-  UserButton,
+  SignOutButton,
   OrganizationSwitcher,
   useOrganization,
   useUser
 } from "@clerk/react";
 import {
-  User,
   ShieldAlert,
-  Sparkles,
   Check,
   Trash2,
   Users,
   ShieldCheck,
   ShoppingCart,
-  Refrigerator
+  Refrigerator,
+  LogIn,
+  LogOut,
+  Mail,
+  Sliders
 } from "lucide-react";
 
 export interface UserFoodProfile {
@@ -25,11 +27,6 @@ export interface UserFoodProfile {
   calmMode: boolean;
   dietaryPattern: string;
 }
-
-const hasClerkKey = Boolean(
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
-  import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-);
 
 const COMMON_AVOID_ALLERGENS = [
   "Gluten / Wheat",
@@ -53,90 +50,101 @@ const COMMON_AVOID_INGREDIENTS = [
   "Hydrogenated Vegetable Oils (Trans Fats)"
 ];
 
-function HouseholdSharingCard() {
+function HouseholdSharingSection() {
   const { organization, isLoaded } = useOrganization();
   const { user } = useUser();
 
   if (!isLoaded) return null;
 
   return (
-    <div className="household-profile-card mb-24">
-      <div className="card-header-flex">
-        <div className="setting-title-row">
-          <Users className="btn-icon text-brand-green" aria-hidden="true" />
-          <h3 className="section-title">Household & Family Kitchen Sharing</h3>
+    <div className="profile-section-card mb-24">
+      <div className="section-card-header">
+        <div className="header-title-group">
+          <div className="icon-pill bg-brand-light">
+            <Users className="pill-icon-svg text-brand" aria-hidden="true" />
+          </div>
+          <div>
+            <h3 className="section-card-title">Household & Family Kitchen Sharing</h3>
+            <p className="tiny text-muted">Collaborate with family members on a single shared kitchen inventory.</p>
+          </div>
         </div>
-        <div className="user-profile-controls">
-          <Show when="signed-in">
-            <div className="clerk-org-switcher-wrapper">
-              <OrganizationSwitcher hidePersonal={false} />
-            </div>
-            <div className="clerk-user-avatar ml-8">
-              <UserButton />
-            </div>
-          </Show>
-        </div>
+
+        <Show when="signed-in">
+          <div className="header-actions">
+            <OrganizationSwitcher hidePersonal={false} />
+          </div>
+        </Show>
       </div>
 
-      <Show when="signed-out">
-        <p className="tiny text-muted mb-16">
-          Operating anonymously in local browser storage. Sign in with Clerk to invite household members, synchronize your shared pantry inventory, and collaborate on meal plans.
-        </p>
-        <SignInButton mode="modal">
-          <button className="primary-button compact-btn">
-            Sign In to Enable Family Sharing
-          </button>
-        </SignInButton>
-      </Show>
+      <div className="section-card-content mt-16">
+        <Show when="signed-out">
+          <div className="signed-out-callout">
+            <p className="text-sm text-muted mb-16">
+              You are currently using FoodCue in private, local-only mode. Sign in or create a free account to invite your family members, synchronize your shared kitchen pantry, and avoid duplicate grocery purchases.
+            </p>
+            <div className="callout-actions">
+              <SignInButton mode="modal">
+                <button type="button" className="btn-primary compact-btn">
+                  <LogIn className="btn-icon" />
+                  <span>Sign In to Enable Family Sharing</span>
+                </button>
+              </SignInButton>
+            </div>
+          </div>
+        </Show>
 
-      <Show when="signed-in">
-        {organization ? (
-          <div className="household-active-details">
-            <div className="active-household-pill mb-12">
-              <span className="dot online-dot" />
-              <span>Active Household: <strong>{organization.name}</strong></span>
-              {organization.membersCount ? (
-                <span className="member-count-tag">
-                  {organization.membersCount} {organization.membersCount === 1 ? "family member" : "family members"}
+        <Show when="signed-in">
+          {organization ? (
+            <div className="household-active-box mb-16">
+              <div className="active-badge-row mb-8">
+                <span className="household-live-tag">
+                  <span className="live-dot" />
+                  Active Household: <strong>{organization.name}</strong>
                 </span>
-              ) : null}
+                {organization.membersCount ? (
+                  <span className="members-count-pill">
+                    {organization.membersCount} {organization.membersCount === 1 ? "member" : "members"}
+                  </span>
+                ) : null}
+              </div>
+              <p className="tiny text-muted">
+                Your pantry items and scan logs are synchronizing with all members of <strong>{organization.name}</strong>.
+              </p>
             </div>
-            <p className="tiny text-muted mb-16">
-              You are currently viewing and modifying the shared family inventory. Any items scanned, logged, or consumed sync automatically with all members of <strong>{organization.name}</strong>.
-            </p>
-          </div>
-        ) : (
-          <div className="household-inactive-details mb-16">
-            <p className="tiny text-muted">
-              You are in <strong>Personal Kitchen Mode</strong> ({user?.primaryEmailAddress?.emailAddress ?? "Signed In"}). Only you can view your pantry and scans. Use the dropdown above to create a Household Organization (e.g., &quot;The Sharma Household&quot;) and invite your family.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="household-personal-box mb-16">
+              <p className="text-sm text-muted">
+                You are currently in <strong>Personal Kitchen Mode</strong> ({user?.primaryEmailAddress?.emailAddress || "Signed In"}).
+                Only you have access to your pantry ledger. Use the Household switcher above to create or join a family kitchen.
+              </p>
+            </div>
+          )}
 
-        <div className="sharing-benefits-grid">
-          <div className="benefit-item">
-            <Refrigerator className="benefit-icon text-brand-green" />
-            <div>
-              <strong>Shared Pantry Stock</strong>
-              <p className="tiny text-muted">Real-time ledger prevents accidental duplicate grocery purchases.</p>
+          <div className="features-value-grid">
+            <div className="feature-mini-card">
+              <Refrigerator className="mini-card-icon text-brand" />
+              <div>
+                <strong className="text-sm">Shared Pantry Stock</strong>
+                <p className="tiny text-muted">Real-time ledger prevents duplicate grocery buys.</p>
+              </div>
+            </div>
+            <div className="feature-mini-card">
+              <ShoppingCart className="mini-card-icon text-lime" />
+              <div>
+                <strong className="text-sm">Collaborative Shopping</strong>
+                <p className="tiny text-muted">Tick off groceries in real-time at the store.</p>
+              </div>
+            </div>
+            <div className="feature-mini-card">
+              <ShieldCheck className="mini-card-icon text-warning" />
+              <div>
+                <strong className="text-sm">Combined Avoid-List</strong>
+                <p className="tiny text-muted">Cross-checks allergens for all household members.</p>
+              </div>
             </div>
           </div>
-          <div className="benefit-item">
-            <ShoppingCart className="benefit-icon text-brand-lime" />
-            <div>
-              <strong>Collaborative Shopping</strong>
-              <p className="tiny text-muted">Family members can add items or tick them off at the store.</p>
-            </div>
-          </div>
-          <div className="benefit-item">
-            <ShieldCheck className="benefit-icon text-warning" />
-            <div>
-              <strong>Combined Avoid-List</strong>
-              <p className="tiny text-muted">Label scans cross-reference allergens for every family member.</p>
-            </div>
-          </div>
-        </div>
-      </Show>
+        </Show>
+      </div>
     </div>
   );
 }
@@ -146,6 +154,8 @@ export function ProfileView({
 }: {
   onProfileChange: (profile: UserFoodProfile) => void;
 }) {
+  const { user, isSignedIn } = useUser();
+
   const [profile, setProfile] = useState<UserFoodProfile>(() => {
     try {
       const saved = localStorage.getItem("foodcue_profile");
@@ -203,128 +213,198 @@ export function ProfileView({
     triggerNotice();
   }
 
+  const userDisplayName =
+    user?.fullName ||
+    user?.firstName ||
+    user?.username ||
+    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+    "Guest User";
+
+  const userEmail = user?.primaryEmailAddress?.emailAddress || "";
+  const userInitials =
+    (user?.firstName?.[0] || "") + (user?.lastName?.[0] || "") ||
+    userDisplayName[0]?.toUpperCase() ||
+    "G";
+
   return (
-    <section className="panel" aria-labelledby="profile-heading">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">PERSONALISATION (LOCAL-ONLY)</p>
-          <h2 id="profile-heading" className="panel-title-with-icon">
-            <User className="title-icon text-brand-green" aria-hidden="true" />
-            Food Profile & Dietary Avoid-List
-          </h2>
-        </div>
-        <span className="local-pill">
-          <span className="dot" /> Stored 100% on this Device
-        </span>
-      </div>
-
-      <p className="muted">
-        Configure personal dietary preferences and ingredient avoidances. When you scan a product, FoodCue will cross-reference label evidence against your local avoid-list.
-      </p>
-
+    <div className="profile-view-container" aria-labelledby="profile-main-title">
+      {/* Toast Notice */}
       {savedNotice && (
-        <div className="alert info" role="status">
-          ✓ Profile preferences updated in local browser storage.
+        <div className="toast-notification" role="status">
+          <Check className="toast-icon" />
+          <span>Dietary preferences updated locally!</span>
         </div>
       )}
 
-      {/* Mandatory Safety Notice */}
-      <div className="notice mb-20">
-        <strong>Self-Reported Allergy & Preference Guardrail:</strong>
-        <p>
-          Preferences entered here are self-reported and do not constitute a clinical diagnosis or medical prescription. FoodCue highlights matched label evidence but cannot certify individual medical safety.
-        </p>
-      </div>
-
-      {/* Household & Family Kitchen Sharing (Clerk Organizations) */}
-      {hasClerkKey && <HouseholdSharingCard />}
-
-      {/* Calm Mode Switch */}
-      <div className="setting-card">
-        <div className="setting-info">
-          <div className="setting-title-row">
-            <Sparkles className="btn-icon text-brand-lime" aria-hidden="true" />
-            <h3>Calm Mode</h3>
+      {/* Account Identity Card */}
+      <div className="profile-hero-card mb-24">
+        <div className="profile-hero-flex">
+          <div className="profile-avatar-wrapper">
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt={userDisplayName} className="hero-avatar-img" />
+            ) : (
+              <div className="hero-avatar-initials">{userInitials}</div>
+            )}
           </div>
-          <p className="tiny">
-            Reduces visual animations, motion, and intense badges. Critical food-safety and allergen warnings always remain visible.
-          </p>
-        </div>
-        <label className="switch-toggle" aria-label="Toggle Calm Mode">
-          <input
-            type="checkbox"
-            checked={profile.calmMode}
-            onChange={(e) => {
-              setProfile((prev) => ({ ...prev, calmMode: e.target.checked }));
-              triggerNotice();
-            }}
-          />
-          <span className="slider round" />
-        </label>
-      </div>
 
-      {/* Allergens Avoid List */}
-      <div className="profile-section">
-        <div className="section-header-row">
-          <ShieldAlert className="section-icon text-danger" aria-hidden="true" />
-          <div>
-            <h3>Allergen Avoidance List</h3>
-            <p className="tiny text-muted">Select ingredients or allergens you want flagged on every scan:</p>
+          <div className="profile-hero-info">
+            <div className="user-badge-row">
+              <span className={`user-status-pill ${isSignedIn ? "signed-in-pill" : "local-mode-pill"}`}>
+                <span className="dot" />
+                {isSignedIn ? "Clerk Verified Account" : "Local-Only Anonymous Mode"}
+              </span>
+            </div>
+
+            <h1 id="profile-main-title" className="profile-user-name">
+              {userDisplayName}
+            </h1>
+
+            {userEmail ? (
+              <p className="profile-user-email">
+                <Mail className="inline-icon" /> {userEmail}
+              </p>
+            ) : (
+              <p className="profile-guest-note">
+                Operating with local storage only. No email or cloud account connected.
+              </p>
+            )}
           </div>
-        </div>
 
-        <div className="chips-grid">
-          {COMMON_AVOID_ALLERGENS.map((allergen) => {
-            const isSelected = profile.avoidAllergens.includes(allergen);
-            return (
-              <button
-                key={allergen}
-                className={`preference-chip ${isSelected ? "selected-chip" : ""}`}
-                onClick={() => toggleAllergen(allergen)}
-                aria-pressed={isSelected}
-              >
-                {isSelected && <Check className="chip-check-icon" aria-hidden="true" />}
-                <span>{allergen}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Ingredients Avoid List */}
-      <div className="profile-section mt-24">
-        <div className="section-header-row">
-          <Sparkles className="section-icon text-warning" aria-hidden="true" />
-          <div>
-            <h3>Ingredient & Additive Preferences</h3>
-            <p className="tiny text-muted">Flag specific oils, sugars, or additives in scanned products:</p>
+          <div className="profile-hero-action">
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button type="button" className="btn-primary">
+                  <LogIn className="btn-icon" />
+                  <span>Sign In / Register</span>
+                </button>
+              </SignInButton>
+            </Show>
+            <Show when="signed-in">
+              <SignOutButton>
+                <button type="button" className="btn-outline">
+                  <LogOut className="btn-icon" />
+                  <span>Sign Out</span>
+                </button>
+              </SignOutButton>
+            </Show>
           </div>
         </div>
+      </div>
 
-        <div className="chips-grid">
-          {COMMON_AVOID_INGREDIENTS.map((ing) => {
-            const isSelected = profile.avoidIngredients.includes(ing);
-            return (
-              <button
-                key={ing}
-                className={`preference-chip ${isSelected ? "selected-chip" : ""}`}
-                onClick={() => toggleIngredient(ing)}
-                aria-pressed={isSelected}
-              >
-                {isSelected && <Check className="chip-check-icon" aria-hidden="true" />}
-                <span>{ing}</span>
-              </button>
-            );
-          })}
+      {/* Household & Family Sharing Section */}
+      <HouseholdSharingSection />
+
+      {/* Food Safety & Dietary Avoid-List Card */}
+      <section className="profile-section-card mb-24" aria-labelledby="dietary-heading">
+        <div className="section-card-header">
+          <div className="header-title-group">
+            <div className="icon-pill bg-brand-light">
+              <ShieldAlert className="pill-icon-svg text-brand" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 id="dietary-heading" className="section-card-title">
+                Food Safety Avoid-List & Allergen Alerts
+              </h2>
+              <p className="tiny text-muted">
+                FoodCue highlights these ingredients and allergens during SmartScan label analysis.
+              </p>
+            </div>
+          </div>
+
+          <span className="local-pill">
+            <span className="dot" /> Stored locally
+          </span>
         </div>
-      </div>
 
-      {/* Reset Section */}
-      <div className="profile-footer-actions mt-32">
-        <button className="secondary-button compact-btn text-danger" onClick={clearAllPreferences}>
-          <Trash2 className="btn-icon" aria-hidden="true" /> Reset All Preferences
-        </button>
-      </div>
-    </section>
+        <div className="section-card-content mt-20">
+          {/* Allergens to Avoid */}
+          <div className="preference-group mb-24">
+            <h4 className="preference-group-title">
+              FSSAI Mandatory Allergens to Flag:
+            </h4>
+            <div className="chips-container mt-10">
+              {COMMON_AVOID_ALLERGENS.map((allergen) => {
+                const isSelected = profile.avoidAllergens.includes(allergen);
+                return (
+                  <button
+                    key={allergen}
+                    type="button"
+                    className={`preference-chip ${isSelected ? "selected-allergen" : ""}`}
+                    onClick={() => toggleAllergen(allergen)}
+                    aria-pressed={isSelected}
+                  >
+                    {isSelected && <Check className="chip-check-icon" />}
+                    <span>{allergen}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Ingredients to Avoid */}
+          <div className="preference-group mb-24">
+            <h4 className="preference-group-title">
+              Ingredients & Additives to Flag:
+            </h4>
+            <div className="chips-container mt-10">
+              {COMMON_AVOID_INGREDIENTS.map((ing) => {
+                const isSelected = profile.avoidIngredients.includes(ing);
+                return (
+                  <button
+                    key={ing}
+                    type="button"
+                    className={`preference-chip ${isSelected ? "selected-ingredient" : ""}`}
+                    onClick={() => toggleIngredient(ing)}
+                    aria-pressed={isSelected}
+                  >
+                    {isSelected && <Check className="chip-check-icon" />}
+                    <span>{ing}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Calm Mode Switch */}
+          <div className="calm-mode-row mt-20">
+            <div className="calm-mode-info">
+              <div className="calm-mode-label-row">
+                <Sliders className="inline-icon text-brand" />
+                <strong className="text-sm">Calm Visual Mode</strong>
+              </div>
+              <p className="tiny text-muted">
+                Suppresses bright red emergency badges in favour of calm neutral indicators to reduce food anxiety.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className={`toggle-switch-btn ${profile.calmMode ? "active" : ""}`}
+              onClick={() => {
+                setProfile((p) => ({ ...p, calmMode: !p.calmMode }));
+                triggerNotice();
+              }}
+              role="switch"
+              aria-checked={profile.calmMode}
+              aria-label="Toggle Calm Visual Mode"
+            >
+              <span className="toggle-switch-slider" />
+            </button>
+          </div>
+
+          {/* Clear preferences button */}
+          <div className="section-card-footer mt-24">
+            <button
+              type="button"
+              className="btn-ghost-sm text-muted"
+              onClick={clearAllPreferences}
+            >
+              <Trash2 className="btn-icon-xs" />
+              <span>Reset All Avoidance Filters</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

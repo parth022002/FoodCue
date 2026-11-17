@@ -3,16 +3,28 @@
 ```text
 ========================================================================================
 PROJECT:               FoodCue (Working Brand; Formerly SafeWise AI)
-VERSION:               v2.0.0 (Production Frontend Complete & Neon DB Active)
+VERSION:               v3.0.0 (Complete Frontend Redesign, Backend Architecture & Cloud Verified)
+DEVELOPER:             Parth Ahuja
 PRODUCT BASELINE:      FoodCue Master Specification v13.5 (Final Controlled Baseline)
 PRODUCT REQUIREMENTS:  FoodCue PRD v1.3
 SECURITY BASELINE:     FoodCue Security, Privacy and Safety Requirements v1.0
+PRODUCTION URL:        https://food-cue.vercel.app/
 REPOSITORY:            https://github.com/parth022002/FoodCue.git
 CONTROLLING BUDGET:    INR 0 Cash Target (Zero-Cash Development Baseline)
 ========================================================================================
 ```
 
 FoodCue is a **local-first, privacy-conscious packaged-food intelligence and kitchen-management Progressive Web Application (PWA)**. It helps households understand packaged-food labels, identify ingredients and allergens, interpret nutritional information, manage kitchen inventory, track expiration dates, and organize pantry stock.
+
+---
+
+## Complete Frontend Redesign Highlights
+
+- **Sticky Navigation Bar:** Left-aligned brand logo and tagline, clean center navigation pills (`SmartScan`, `My Kitchen`, `Reminders`, `Shopping List`, `Catalogue`), and isolated right-aligned account and privacy controls.
+- **Dedicated Right-Side Account Area:** Positioned outside feature navigation. For signed-out visitors, displays `Sign In` and `Sign Up` buttons; for authenticated users, displays Clerk Organization switcher (Household) and custom profile dropdown.
+- **Mobile Navigation Drawer & Bottom Bar:** Touch-friendly mobile drawer menu plus fixed 5-button bottom navigation bar (`Scan`, `Kitchen`, `Remind`, `Shop`, `More`) for effortless one-thumb smartphone operation.
+- **Comprehensive 8-Section Privacy Page (`/privacy`):** Complete transparency into local-first storage, IndexedDB live quotas, optional Clerk authentication, Neon PostgreSQL sync in AWS Singapore, zero photo upload policy, data export/import, and project author information (**Parth Ahuja**).
+- **Responsive 4-Column Consumer Footer:** Multi-column layout with brand, explore links, household/cloud actions, privacy controls, developer credit, and official FSSAI safety disclaimer.
 
 ---
 
@@ -23,7 +35,7 @@ FoodCue is a **local-first, privacy-conscious packaged-food intelligence and kit
 - **No Mandatory Accounts:** Usable immediately without registration or login. Optional cross-device sync available via Neon and Clerk.
 - **Deterministic Food Rules:** Zero AI-generated safety verdicts. Allergen and nutrition facts are derived strictly from reviewed, versioned deterministic rule sets against verified physical packaging labels (`ConfirmedLabel`).
 - **Offline PWA:** Standalone Progressive Web App with Service Worker (`sw.js`) and Web App Manifest (`manifest.webmanifest`).
-- **Production Edge Hosting:** Optimized for deployment on **Vercel** with SPA rewrites (`vercel.json`) and security headers.
+- **Production Edge Hosting:** Optimized for deployment on **Vercel** (`https://food-cue.vercel.app/`) with SPA rewrites (`vercel.json`) and security headers.
 
 ---
 
