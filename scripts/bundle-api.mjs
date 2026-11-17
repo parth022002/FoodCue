@@ -30,6 +30,10 @@ const targets = [
   {
     entry: "src/server/endpoints/deleteCloudData.ts",
     outfile: "api/sync/deleteCloudData.js"
+  },
+  {
+    entry: "src/server/endpoints/notificationsSubscribe.ts",
+    outfile: "api/notifications/subscribe.js"
   }
 ];
 
