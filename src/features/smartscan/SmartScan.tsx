@@ -63,6 +63,7 @@ import {
   GtinValidationError,
   type OpenFoodFactsProductCandidate
 } from "../../integrations/openfoodfacts";
+import { SmartScanViewfinder } from "./SmartScanViewfinder";
 
 export function SmartScan({
   initialGtin,
@@ -664,37 +665,16 @@ export function SmartScan({
         </div>
       )}
 
-      {/* Mode 1: Live Camera Viewfinder */}
+      {/* Mode 1: Live Camera Viewfinder with Mobile Hardware Controls */}
       {activeMode === "camera" && !candidate && (
-        <div className="camera-viewfinder-container">
-          <div className="viewfinder-box">
-            <video ref={videoRef} playsInline autoPlay muted className="camera-video-element" />
-            {/* Reticle Overlay */}
-            <div className="viewfinder-overlay">
-              <div className="reticle-corners">
-                <div className="corner top-left" />
-                <div className="corner top-right" />
-                <div className="corner bottom-left" />
-                <div className="corner bottom-right" />
-              </div>
-              <div className="scan-laser-line" />
-            </div>
-            <p className="viewfinder-hint">Align barcode or QR code inside frame</p>
-          </div>
-
-          <div className="camera-controls-bar">
-            <button className="secondary-button compact-btn" onClick={handleToggleTorch}>
-              <Flashlight className="btn-icon" /> {torchOn ? "Torch Off" : "Torch"}
-            </button>
-            <button className="secondary-button compact-btn" onClick={handleToggleCamera}>
-              <SwitchCamera className="btn-icon" /> Flip Camera
-            </button>
-            <button className="danger-button compact-btn" onClick={stopLiveCamera}>
-              Stop Camera
-            </button>
-          </div>
+        <>
+          <SmartScanViewfinder
+            stream={stream}
+            onFlipCamera={handleToggleCamera}
+            onStopCamera={stopLiveCamera}
+          />
           {cameraError && <p className="alert error">{cameraError}</p>}
-        </div>
+        </>
       )}
 
       {/* Mode 2: Photo / Gallery Upload */}
