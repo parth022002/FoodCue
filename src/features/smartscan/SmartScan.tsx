@@ -40,8 +40,6 @@ import {
   PhoneCall,
   Plus,
   RefreshCw,
-  Flashlight,
-  SwitchCamera,
   Layers,
   ChevronRight,
   ShieldCheck,
@@ -95,7 +93,6 @@ export function SmartScan({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string>("");
   const [isScanningActive, setIsScanningActive] = useState<boolean>(false);
-  const [torchOn, setTorchOn] = useState<boolean>(false);
 
   // Upload state
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -207,23 +204,6 @@ export function SmartScan({
   function handleToggleCamera() {
     stopLiveCamera();
     setTimeout(() => startLiveCamera(), 300);
-  }
-
-  function handleToggleTorch() {
-    if (stream) {
-      const track = stream.getVideoTracks()[0];
-      if (track) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const capabilities = track?.getCapabilities?.() as any;
-        if (capabilities && "torch" in capabilities) {
-          const next = !torchOn;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          track.applyConstraints({ advanced: [{ torch: next }] as any }).then(() => setTorchOn(next));
-        } else {
-          alert("Torch / flashlight is not supported by your hardware or browser.");
-        }
-      }
-    }
   }
 
   // File Upload Handling

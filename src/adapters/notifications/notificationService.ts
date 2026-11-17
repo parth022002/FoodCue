@@ -189,12 +189,12 @@ export async function saveNotificationPreferences(
  * Tests whether a given timestamp falls inside the configured quiet hours
  */
 export function isWithinQuietHours(date: Date, startStr: string, endStr: string): boolean {
-  const [startHour, startMin] = startStr.split(":").map((v) => parseInt(v, 10));
-  const [endHour, endMin] = endStr.split(":").map((v) => parseInt(v, 10));
+  const [startHour = 22, startMin = 0] = startStr.split(":").map((v) => parseInt(v, 10));
+  const [endHour = 8, endMin = 0] = endStr.split(":").map((v) => parseInt(v, 10));
 
   const currentMinutes = date.getHours() * 60 + date.getMinutes();
-  const startMinutes = startHour * 60 + (startMin || 0);
-  const endMinutes = endHour * 60 + (endMin || 0);
+  const startMinutes = (startHour ?? 22) * 60 + (startMin || 0);
+  const endMinutes = (endHour ?? 8) * 60 + (endMin || 0);
 
   if (startMinutes > endMinutes) {
     // Overnight quiet hours (e.g. 22:00 to 08:00)
@@ -209,7 +209,11 @@ export function isWithinQuietHours(date: Date, startStr: string, endStr: string)
  * Calculates days remaining from today (at midnight) to expiry date
  */
 export function calculateDaysRemaining(expiryDateStr: string, referenceDate: Date = new Date()): number {
-  const [year, month, day] = expiryDateStr.split("-").map((v) => parseInt(v, 10));
+  const parts = expiryDateStr.split("-").map((v) => parseInt(v, 10));
+  const year = parts[0] ?? referenceDate.getFullYear();
+  const month = parts[1] ?? (referenceDate.getMonth() + 1);
+  const day = parts[2] ?? referenceDate.getDate();
+
   const expiryDay = new Date(year, month - 1, day, 0, 0, 0, 0);
 
   const refDay = new Date(

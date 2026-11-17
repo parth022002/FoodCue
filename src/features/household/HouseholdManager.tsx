@@ -5,13 +5,12 @@
  */
 
 import React, { useState } from "react";
-import { Users, UserPlus, Shield, ShieldAlert, ArrowRightLeft, Check, AlertTriangle, X } from "lucide-react";
+import { Users, UserPlus, ArrowRightLeft, Check, AlertTriangle, X } from "lucide-react";
 import {
   type Household,
   type HouseholdRole,
   type HouseholdMigrationChoice,
-  canAdministerHousehold,
-  canWritePantryEvents
+  canAdministerHousehold
 } from "../../domain/entities/household";
 
 interface HouseholdManagerProps {
@@ -27,7 +26,6 @@ interface HouseholdManagerProps {
 export const HouseholdManager: React.FC<HouseholdManagerProps> = ({
   currentHousehold,
   userRole = "admin",
-  userEmail,
   onSelectHousehold,
   onInviteMember,
   onClose,

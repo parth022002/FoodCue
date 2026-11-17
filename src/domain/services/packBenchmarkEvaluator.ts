@@ -83,26 +83,26 @@ export interface BenchmarkDatasetSummary {
 export function computeLevenshteinDistance(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  const stride = n + 1;
+  const dp: number[] = new Array((m + 1) * stride).fill(0);
 
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 0; i <= m; i++) dp[i * stride] = i;
+  for (let j = 0; j <= n; j++) dp[j] = j;
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       if (a[i - 1] === b[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
+        dp[i * stride + j] = dp[(i - 1) * stride + (j - 1)] ?? 0;
       } else {
-        dp[i][j] = Math.min(
-          dp[i - 1][j] + 1, // deletion
-          dp[i][j - 1] + 1, // insertion
-          dp[i - 1][j - 1] + 1 // substitution
-        );
+        const del = (dp[(i - 1) * stride + j] ?? 0) + 1;
+        const ins = (dp[i * stride + (j - 1)] ?? 0) + 1;
+        const sub = (dp[(i - 1) * stride + (j - 1)] ?? 0) + 1;
+        dp[i * stride + j] = Math.min(del, ins, sub);
       }
     }
   }
 
-  return dp[m][n];
+  return dp[m * stride + n] ?? 0;
 }
 
 /**
@@ -126,26 +126,26 @@ export function computeWer(expected: string, observed: string): number {
 
   const m = wordsExp.length;
   const n = wordsObs.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  const stride = n + 1;
+  const dp: number[] = new Array((m + 1) * stride).fill(0);
 
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 0; i <= m; i++) dp[i * stride] = i;
+  for (let j = 0; j <= n; j++) dp[j] = j;
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       if (wordsExp[i - 1] === wordsObs[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
+        dp[i * stride + j] = dp[(i - 1) * stride + (j - 1)] ?? 0;
       } else {
-        dp[i][j] = Math.min(
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + 1
-        );
+        const del = (dp[(i - 1) * stride + j] ?? 0) + 1;
+        const ins = (dp[i * stride + (j - 1)] ?? 0) + 1;
+        const sub = (dp[(i - 1) * stride + (j - 1)] ?? 0) + 1;
+        dp[i * stride + j] = Math.min(del, ins, sub);
       }
     }
   }
 
-  const dist = dp[m][n];
+  const dist = dp[m * stride + n] ?? 0;
   return Math.min(1, Math.round((dist / wordsExp.length) * 1000) / 1000);
 }
 

@@ -346,6 +346,7 @@ export function SmartScanViewfinder({
           onClick={toggleTorch}
           aria-pressed={torchOn}
           aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"}
+          title={hasTorch ? "Hardware torch supported" : "Hardware torch unverified"}
           style={{ minHeight: "44px", minWidth: "44px" }}
         >
           <Flashlight size={16} className={torchOn ? "text-brand-green" : ""} />

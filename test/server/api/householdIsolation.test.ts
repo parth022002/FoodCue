@@ -46,20 +46,20 @@ describe("Milestone 5: Multi-Tenant Household Sharing & RBAC Isolation", () => {
 
   describe("Tenant Isolation between Households", () => {
     it("ensures Household A operations are strictly invisible to Household B", async () => {
-      const orgA = "org_household_alpha";
-      const orgB = "org_household_beta";
-      const deviceA = "a0000000-0000-4000-8000-000000000001";
-      const deviceB = "b0000000-0000-4000-8000-000000000002";
+      const orgA = `org_alpha_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const orgB = `org_beta_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const deviceA = crypto.randomUUID();
+      const deviceB = crypto.randomUUID();
 
       // Register devices
       await syncRepository.upsertDevice({
         deviceId: deviceA,
-        clerkUserId: "user_alice",
+        clerkUserId: `user_alice_${Date.now()}`,
         deviceName: "Alice iPhone"
       });
       await syncRepository.upsertDevice({
         deviceId: deviceB,
-        clerkUserId: "user_bob",
+        clerkUserId: `user_bob_${Date.now()}`,
         deviceName: "Bob Android"
       });
 
@@ -114,9 +114,9 @@ describe("Milestone 5: Multi-Tenant Household Sharing & RBAC Isolation", () => {
     });
 
     it("preserves isolation between personal pantries and household pantries", async () => {
-      const personalUser = "user_solo_charlie";
-      const orgA = "org_household_alpha";
-      const deviceC = "c0000000-0000-4000-8000-000000000003";
+      const personalUser = `user_charlie_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const orgA = `org_alpha_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const deviceC = crypto.randomUUID();
 
       await syncRepository.upsertDevice({
         deviceId: deviceC,

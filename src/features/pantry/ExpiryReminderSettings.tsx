@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Bell, BellOff, Moon, Clock, ShieldCheck, AlertCircle } from "lucide-react";
+import { Bell, Moon, Clock, ShieldCheck, AlertCircle } from "lucide-react";
 import {
   type ExpiryAlertThreshold,
   type NotificationPreferences,
@@ -15,8 +15,7 @@ import {
   isPushSupported,
   requestNotificationPermission,
   saveNotificationPreferences,
-  subscribeToPush,
-  unsubscribeFromPush
+  subscribeToPush
 } from "../../adapters/notifications/notificationService";
 
 interface ExpiryReminderSettingsProps {
