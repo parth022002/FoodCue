@@ -74,8 +74,26 @@ export default async function handler(
       );
     }
 
+    // Household RBAC Enforcement (Milestone 5)
+    if (userContext.organizationId) {
+      const orgRole = (userContext.organizationRole || "").toLowerCase();
+      if (orgRole.includes("viewer") || orgRole.includes("guest")) {
+        return sendResponse(
+          res,
+          {
+            error: "Read-only household members cannot push modifications to the shared ledger.",
+            code: "FORBIDDEN_ROLE_INSUFFICIENT"
+          },
+          403
+        );
+      }
+    }
+
+    // Scoped tenant ID: organizationId if present, else user's personal clerkUserId
+    const tenantId = userContext.organizationId || userContext.clerkUserId;
+
     const { processed, duplicates } = await syncRepository.processPushBatch(
-      userContext.clerkUserId,
+      tenantId,
       body.deviceId,
       body.operations
     );

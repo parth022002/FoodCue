@@ -4156,9 +4156,14 @@ async function verifyClerkSessionToken(token, secretKeyOverride) {
     if (!clerkUserId || typeof clerkUserId !== "string" || !clerkUserId.startsWith("user_")) {
       throw new UnauthorizedError("Invalid token claims. Missing verified Clerk user ID.");
     }
+    const claims = payload;
+    const orgId = typeof claims.org_id === "string" ? claims.org_id : null;
+    const orgRole = typeof claims.org_role === "string" ? claims.org_role : null;
     return {
       clerkUserId,
-      sessionClaims: payload,
+      organizationId: orgId,
+      organizationRole: orgRole,
+      sessionClaims: claims,
       authorizedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
   } catch (error) {

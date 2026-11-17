@@ -4,6 +4,8 @@ import { UnauthorizedError } from "../errors/appErrors";
 
 export interface VerifiedUserContext {
   clerkUserId: string;
+  organizationId?: string | null;
+  organizationRole?: string | null;
   sessionClaims: Record<string, unknown>;
   authorizedAt: string;
 }
@@ -40,9 +42,15 @@ export async function verifyClerkSessionToken(
       throw new UnauthorizedError("Invalid token claims. Missing verified Clerk user ID.");
     }
 
+    const claims = payload as unknown as Record<string, unknown>;
+    const orgId = typeof claims.org_id === "string" ? claims.org_id : null;
+    const orgRole = typeof claims.org_role === "string" ? claims.org_role : null;
+
     return {
       clerkUserId,
-      sessionClaims: payload as unknown as Record<string, unknown>,
+      organizationId: orgId,
+      organizationRole: orgRole,
+      sessionClaims: claims,
       authorizedAt: new Date().toISOString()
     };
   } catch (error) {

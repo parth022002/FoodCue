@@ -4141,9 +4141,14 @@ async function verifyClerkSessionToken(token, secretKeyOverride) {
     if (!clerkUserId || typeof clerkUserId !== "string" || !clerkUserId.startsWith("user_")) {
       throw new UnauthorizedError("Invalid token claims. Missing verified Clerk user ID.");
     }
+    const claims = payload;
+    const orgId = typeof claims.org_id === "string" ? claims.org_id : null;
+    const orgRole = typeof claims.org_role === "string" ? claims.org_role : null;
     return {
       clerkUserId,
-      sessionClaims: payload,
+      organizationId: orgId,
+      organizationRole: orgRole,
+      sessionClaims: claims,
       authorizedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
   } catch (error) {
@@ -4756,8 +4761,22 @@ async function handler(req, res) {
         403
       );
     }
+    if (userContext.organizationId) {
+      const orgRole = (userContext.organizationRole || "").toLowerCase();
+      if (orgRole.includes("viewer") || orgRole.includes("guest")) {
+        return sendResponse(
+          res,
+          {
+            error: "Read-only household members cannot push modifications to the shared ledger.",
+            code: "FORBIDDEN_ROLE_INSUFFICIENT"
+          },
+          403
+        );
+      }
+    }
+    const tenantId = userContext.organizationId || userContext.clerkUserId;
     const { processed, duplicates } = await syncRepository.processPushBatch(
-      userContext.clerkUserId,
+      tenantId,
       body.deviceId,
       body.operations
     );

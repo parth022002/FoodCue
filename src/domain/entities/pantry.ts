@@ -27,6 +27,7 @@ export interface PantryEvent {
   confirmation: true;
   targetEventId?: string;
   note?: string;
+  householdId?: string;
   schemaVersion: 1;
 }
 

@@ -43,8 +43,11 @@ export default async function handler(
       }
     }
 
+    // Scoped tenant ID: organizationId if present, else user's personal clerkUserId
+    const tenantId = userContext.organizationId || userContext.clerkUserId;
+
     const operations = await syncRepository.pullOperationsSince(
-      userContext.clerkUserId,
+      tenantId,
       sinceTimestamp,
       100
     );
