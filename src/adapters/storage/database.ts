@@ -285,6 +285,23 @@ export async function queryByIndex<T>(
 }
 
 /**
+ * Clears a specific store in IndexedDB
+ */
+export async function clearStore(store: StoreName): Promise<void> {
+  const db = await openDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(store, "readwrite");
+      tx.objectStore(store).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error(`Could not clear store '${store}'.`));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+/**
  * Clears all FoodCue stores atomically and verifies zero records remaining
  */
 export async function clearFoodCueData(): Promise<{ success: boolean; clearedStores: string[] }> {
