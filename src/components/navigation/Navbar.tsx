@@ -14,6 +14,8 @@ import { syncStatus } from "../../sync/state/syncStatus";
 import { syncCoordinator } from "../../sync/engine/syncCoordinator";
 import { MigrationWizard } from "../../features/sync/MigrationWizard";
 import {
+  Home,
+  Search,
   Sparkles,
   Refrigerator,
   Bell,
@@ -106,9 +108,9 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
             href="/"
             onClick={(e) => {
               e.preventDefault();
-              handleTabClick("scan");
+              handleTabClick("home");
             }}
-            aria-label="FoodCue Home — Return to SmartScan"
+            aria-label="FoodCue Home — Return to Dashboard"
           >
             <FoodCueLogo size={36} />
             <div className="brand-text-block">
@@ -121,12 +123,32 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
           <nav className="navbar-center-nav" aria-label="Main application navigation">
             <button
               type="button"
+              className={`nav-link-btn ${activeTab === "home" ? "active" : ""}`}
+              onClick={() => handleTabClick("home")}
+              aria-current={activeTab === "home" ? "page" : undefined}
+            >
+              <Home className="nav-icon" aria-hidden="true" />
+              <span>{user ? "Dashboard" : "Home"}</span>
+            </button>
+
+            <button
+              type="button"
               className={`nav-link-btn ${activeTab === "scan" ? "active" : ""}`}
               onClick={() => handleTabClick("scan")}
               aria-current={activeTab === "scan" ? "page" : undefined}
             >
               <Sparkles className="nav-icon" aria-hidden="true" />
               <span>SmartScan</span>
+            </button>
+
+            <button
+              type="button"
+              className={`nav-link-btn ${activeTab === "search" ? "active" : ""}`}
+              onClick={() => handleTabClick("search")}
+              aria-current={activeTab === "search" ? "page" : undefined}
+            >
+              <Search className="nav-icon" aria-hidden="true" />
+              <span>Search</span>
             </button>
 
             <button
@@ -442,11 +464,29 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
               <div className="mobile-nav-links">
                 <button
                   type="button"
+                  className={`mobile-nav-item ${activeTab === "home" ? "active" : ""}`}
+                  onClick={() => handleTabClick("home")}
+                >
+                  <Home className="mobile-item-icon" />
+                  <span>{user ? "Dashboard" : "Home"}</span>
+                </button>
+
+                <button
+                  type="button"
                   className={`mobile-nav-item ${activeTab === "scan" ? "active" : ""}`}
                   onClick={() => handleTabClick("scan")}
                 >
                   <Sparkles className="mobile-item-icon" />
                   <span>SmartScan</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`mobile-nav-item ${activeTab === "search" ? "active" : ""}`}
+                  onClick={() => handleTabClick("search")}
+                >
+                  <Search className="mobile-item-icon" />
+                  <span>Search Products</span>
                 </button>
 
                 <button
