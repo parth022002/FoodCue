@@ -10,6 +10,9 @@ import {
 } from "@clerk/react";
 import { FoodCueLogo } from "../brand/FoodCueLogo";
 import type { ActiveTab } from "../../app/App";
+import { syncStatus } from "../../sync/state/syncStatus";
+import { syncCoordinator } from "../../sync/engine/syncCoordinator";
+import { MigrationWizard } from "../../features/sync/MigrationWizard";
 import {
   Sparkles,
   Refrigerator,
@@ -24,7 +27,9 @@ import {
   Users,
   LogOut,
   LogIn,
-  UserPlus
+  UserPlus,
+  Cloud,
+  RefreshCw
 } from "lucide-react";
 
 interface NavbarProps {
@@ -33,13 +38,20 @@ interface NavbarProps {
   syncActive?: boolean;
 }
 
-export function Navbar({ activeTab, onSelectTab, syncActive = false }: NavbarProps) {
+export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [showMigrationWizard, setShowMigrationWizard] = useState(false);
+  const [syncState, setSyncState] = useState(syncStatus.getState());
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const { user } = useUser();
   const { organization } = useOrganization();
+
+  useEffect(() => {
+    const unsub = syncStatus.subscribe((s) => setSyncState(s));
+    return () => unsub();
+  }, []);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -160,17 +172,25 @@ export function Navbar({ activeTab, onSelectTab, syncActive = false }: NavbarPro
 
           {/* Right: Account, Status & Privacy Controls */}
           <div className="navbar-right-actions">
-            {/* Local Storage Status Indicator */}
-            <div className="local-status-badge" title="Data stored privately in local browser storage (IndexedDB)">
-              <span className="local-status-dot" aria-hidden="true" />
-              <span className="local-status-text">Local</span>
-            </div>
-
-            {/* Cloud Sync Status Indicator (Only appears when sync is active) */}
-            {syncActive && (
-              <div className="sync-status-badge" title="Multi-device cloud synchronization enabled">
-                <span className="sync-status-dot" aria-hidden="true" />
-                <span className="sync-status-text">Cloud Sync</span>
+            {/* Storage / Cloud Sync Status Indicator */}
+            {syncState.isCloudEnabled ? (
+              <div
+                className={`sync-status-badge ${syncStatus.getConsumerLabel().variant}`}
+                title={syncStatus.getConsumerLabel().text}
+              >
+                <span className={`sync-status-dot ${syncStatus.getConsumerLabel().variant}`} aria-hidden="true" />
+                <span className="sync-status-text">{syncStatus.getConsumerLabel().text}</span>
+              </div>
+            ) : (
+              <div
+                className="local-status-badge"
+                title="Data stored privately on this device (IndexedDB)"
+                onClick={() => {
+                  if (user) setShowMigrationWizard(true);
+                }}
+              >
+                <span className="local-status-dot" aria-hidden="true" />
+                <span className="local-status-text">Local</span>
               </div>
             )}
 
@@ -285,6 +305,34 @@ export function Navbar({ activeTab, onSelectTab, syncActive = false }: NavbarPro
                             <Shield className="dropdown-item-icon" />
                             <span>Privacy & Local Data</span>
                           </button>
+
+                          {syncState.isCloudEnabled ? (
+                            <button
+                              type="button"
+                              className="dropdown-item-btn"
+                              role="menuitem"
+                              onClick={() => {
+                                setProfileDropdownOpen(false);
+                                syncCoordinator.triggerSync();
+                              }}
+                            >
+                              <RefreshCw className="dropdown-item-icon text-brand" />
+                              <span>Sync Kitchen Now</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="dropdown-item-btn"
+                              role="menuitem"
+                              onClick={() => {
+                                setProfileDropdownOpen(false);
+                                setShowMigrationWizard(true);
+                              }}
+                            >
+                              <Cloud className="dropdown-item-icon text-brand" />
+                              <span>Connect Kitchen to Cloud</span>
+                            </button>
+                          )}
                         </div>
 
                         <div className="dropdown-divider" role="separator" />
@@ -526,6 +574,13 @@ export function Navbar({ activeTab, onSelectTab, syncActive = false }: NavbarPro
           <span>More</span>
         </button>
       </nav>
+
+      {/* Migration Wizard Modal */}
+      <MigrationWizard
+        isOpen={showMigrationWizard}
+        onClose={() => setShowMigrationWizard(false)}
+        onComplete={() => setShowMigrationWizard(false)}
+      />
     </>
   );
 }

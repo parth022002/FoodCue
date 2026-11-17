@@ -74,15 +74,26 @@ export async function parseRequest(
   headers: Headers | Record<string, string | string[] | undefined>;
   method: string;
   json: <T>() => Promise<T | null>;
+  text: () => Promise<string>;
 }> {
   if (typeof (req as Request).headers?.get === "function") {
     const webReq = req as Request;
+    let cachedText: string | null = null;
+    const getText = async () => {
+      if (cachedText === null) {
+        cachedText = await webReq.text();
+      }
+      return cachedText;
+    };
+
     return {
       headers: webReq.headers,
       method: webReq.method || "GET",
+      text: getText,
       json: async <T>() => {
         try {
-          return (await webReq.json()) as T;
+          const raw = await getText();
+          return raw ? (JSON.parse(raw) as T) : null;
         } catch {
           return null;
         }
@@ -92,9 +103,17 @@ export async function parseRequest(
 
   // Node IncomingMessage / VercelRequest style
   const nodeReq = req as { headers: Record<string, string | string[] | undefined>; body?: unknown; method?: string };
+  const rawBodyStr =
+    typeof nodeReq.body === "string"
+      ? nodeReq.body
+      : nodeReq.body !== undefined
+      ? JSON.stringify(nodeReq.body)
+      : "";
+
   return {
     headers: nodeReq.headers,
     method: nodeReq.method || "GET",
+    text: async () => rawBodyStr,
     json: async <T>() => {
       if (nodeReq.body) {
         return (typeof nodeReq.body === "string" ? JSON.parse(nodeReq.body) : nodeReq.body) as T;

@@ -5,7 +5,8 @@ import {
   SignOutButton,
   OrganizationSwitcher,
   useOrganization,
-  useUser
+  useUser,
+  useAuth
 } from "@clerk/react";
 import {
   ShieldAlert,
@@ -18,8 +19,16 @@ import {
   LogIn,
   LogOut,
   Mail,
-  Sliders
+  Sliders,
+  Cloud,
+  Smartphone,
+  RefreshCw
 } from "lucide-react";
+import { syncStatus } from "../../sync/state/syncStatus";
+import { syncCoordinator } from "../../sync/engine/syncCoordinator";
+import { SyncApiClient } from "../../sync/transport/syncApiClient";
+import type { SyncDeviceRecord } from "../../sync/types/syncContracts";
+import { MigrationWizard } from "../sync/MigrationWizard";
 
 export interface UserFoodProfile {
   avoidAllergens: string[];
@@ -49,6 +58,155 @@ const COMMON_AVOID_INGREDIENTS = [
   "Monosodium Glutamate (MSG / INS 621)",
   "Hydrogenated Vegetable Oils (Trans Fats)"
 ];
+
+function MultiDeviceSyncSection({ onOpenMigration }: { onOpenMigration: () => void }) {
+  const { isSignedIn } = useUser();
+  const { getToken } = useAuth();
+  const [syncState, setSyncState] = useState(syncStatus.getState());
+  const [devices, setDevices] = useState<SyncDeviceRecord[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    const unsub = syncStatus.subscribe((s) => setSyncState(s));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+
+    let mounted = true;
+
+    const client = new SyncApiClient(async () => getToken());
+    client
+      .listDevices()
+      .then((list) => {
+        if (mounted) {
+          setDevices(list);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, [isSignedIn, getToken, syncState.status]);
+
+  async function handleSyncNow() {
+    setIsSyncing(true);
+    try {
+      await syncCoordinator.triggerSync();
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function handleRevoke(deviceId: string) {
+    const client = new SyncApiClient(async () => getToken());
+    const ok = await client.revokeDevice(deviceId);
+    if (ok) {
+      setDevices((prev) => prev.filter((d) => d.deviceId !== deviceId));
+    }
+  }
+
+  const label = syncStatus.getConsumerLabel();
+
+  return (
+    <div className="profile-section-card mb-24">
+      <div className="section-card-header">
+        <div className="header-title-group">
+          <div className="icon-pill bg-emerald-light">
+            <Cloud className="pill-icon-svg text-emerald" aria-hidden="true" />
+          </div>
+          <div>
+            <h3 className="section-card-title">Multi-Device Synchronisation</h3>
+            <p className="tiny text-muted">
+              Securely keep your kitchen inventory and verified labels updated across all your devices.
+            </p>
+          </div>
+        </div>
+
+        <Show when="signed-in">
+          <div className="header-actions">
+            {syncState.isCloudEnabled ? (
+              <button
+                type="button"
+                className="btn-secondary-sm"
+                onClick={handleSyncNow}
+                disabled={isSyncing}
+              >
+                <RefreshCw className={`btn-icon-xs ${isSyncing ? "spin" : ""}`} />
+                <span>{isSyncing ? "Syncing..." : "Sync Now"}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-primary-sm"
+                onClick={onOpenMigration}
+              >
+                <Cloud className="btn-icon-xs" />
+                <span>Enable Cloud Sync</span>
+              </button>
+            )}
+          </div>
+        </Show>
+      </div>
+
+      <div className="section-card-content mt-16">
+        <div className="neon-status-card">
+          <div className="status-indicator-row">
+            <div className="status-flex">
+              <span className={`status-bubble ${label.variant === "success" ? "bg-green" : "bg-gray"}`} />
+              <div>
+                <strong className="text-sm">{label.text}</strong>
+                <div className="tiny text-muted">
+                  {syncState.lastSyncTime
+                    ? `Last synchronized: ${new Date(syncState.lastSyncTime).toLocaleTimeString()}`
+                    : "Local-first storage active"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Show when="signed-in">
+          {devices.length > 0 && (
+            <div className="connected-devices-wrapper mt-16">
+              <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-8">
+                Connected Devices ({devices.length})
+              </h4>
+              <div className="devices-container">
+                {devices.map((dev) => (
+                  <div key={dev.deviceId} className="device-card-row">
+                    <div className="device-info-col">
+                      <span className="device-name-text">
+                        <Smartphone className="inline-icon mr-4" size={14} />
+                        {dev.deviceName}
+                        {dev.deviceId === syncState.deviceId && " (This Device)"}
+                      </span>
+                      <span className="device-meta-sub">
+                        Last synced: {new Date(dev.lastSyncAt).toLocaleString()} • Version {dev.clientVersion}
+                      </span>
+                    </div>
+
+                    {dev.deviceId !== syncState.deviceId && (
+                      <button
+                        type="button"
+                        className="device-revoke-btn"
+                        onClick={() => handleRevoke(dev.deviceId)}
+                      >
+                        Revoke Access
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Show>
+      </div>
+    </div>
+  );
+}
 
 function HouseholdSharingSection() {
   const { organization, isLoaded } = useOrganization();
@@ -155,6 +313,7 @@ export function ProfileView({
   onProfileChange: (profile: UserFoodProfile) => void;
 }) {
   const { user, isSignedIn } = useUser();
+  const [showMigrationWizard, setShowMigrationWizard] = useState(false);
 
   const [profile, setProfile] = useState<UserFoodProfile>(() => {
     try {
@@ -294,6 +453,9 @@ export function ProfileView({
       {/* Household & Family Sharing Section */}
       <HouseholdSharingSection />
 
+      {/* Multi-Device Cloud Sync Section */}
+      <MultiDeviceSyncSection onOpenMigration={() => setShowMigrationWizard(true)} />
+
       {/* Food Safety & Dietary Avoid-List Card */}
       <section className="profile-section-card mb-24" aria-labelledby="dietary-heading">
         <div className="section-card-header">
@@ -405,6 +567,13 @@ export function ProfileView({
           </div>
         </div>
       </section>
+
+      {/* Migration Wizard Modal */}
+      <MigrationWizard
+        isOpen={showMigrationWizard}
+        onClose={() => setShowMigrationWizard(false)}
+        onComplete={() => setShowMigrationWizard(false)}
+      />
     </div>
   );
 }

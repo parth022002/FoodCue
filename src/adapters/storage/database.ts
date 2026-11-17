@@ -8,7 +8,7 @@ import type { PantryEvent } from "../../domain/entities/pantry";
 import type { ConfirmedLabel, ProductCandidate } from "../../domain/entities/food";
 
 export const DB_NAME = "foodcue-local";
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export const STORES = [
   "candidates",
@@ -16,7 +16,9 @@ export const STORES = [
   "analysisResults",
   "pantryEvents",
   "settings",
-  "metadata"
+  "metadata",
+  "syncQueue",
+  "syncState"
 ] as const;
 
 export type StoreName = typeof STORES[number];
@@ -124,12 +126,39 @@ export function openDatabase(): Promise<IDBDatabase> {
           }
         }
       }
+
+      // Migration v2 -> v3: Add persistent sync queue and sync state stores
+      if (oldVersion < 3) {
+        if (!db.objectStoreNames.contains("syncQueue")) {
+          const queueStore = db.createObjectStore("syncQueue", { keyPath: "id" });
+          queueStore.createIndex("status", "status", { unique: false });
+          queueStore.createIndex("createdAt", "createdAt", { unique: false });
+          queueStore.createIndex("idempotencyKey", "idempotencyKey", { unique: true });
+        }
+
+        if (!db.objectStoreNames.contains("syncState")) {
+          db.createObjectStore("syncState", { keyPath: "key" });
+        }
+      }
     };
 
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("Could not open local database."));
     request.onblocked = () => reject(new Error("Database upgrade is blocked by another open FoodCue tab."));
   });
+}
+
+export type StorageMutationListener = (
+  store: StoreName,
+  value: unknown,
+  action: "put" | "delete",
+  key?: IDBValidKey
+) => void;
+
+let globalMutationListener: StorageMutationListener | null = null;
+
+export function registerStorageMutationListener(listener: StorageMutationListener | null): void {
+  globalMutationListener = listener;
 }
 
 /**
@@ -142,7 +171,16 @@ export async function putRecord<T>(store: StoreName, value: T): Promise<void> {
       const tx = db.transaction(store, "readwrite");
       const objStore = tx.objectStore(store);
       objStore.put(value);
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        if (globalMutationListener && store !== "syncQueue" && store !== "syncState") {
+          try {
+            globalMutationListener(store, value, "put");
+          } catch {
+            // Mutation listener resilience
+          }
+        }
+        resolve();
+      };
       tx.onerror = () => reject(tx.error ?? new Error(`Failed to save record to store '${store}'.`));
       tx.onabort = () => reject(tx.error ?? new Error(`Save transaction aborted on store '${store}'.`));
     });

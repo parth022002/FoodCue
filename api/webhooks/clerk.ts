@@ -1,5 +1,7 @@
 import { jsonResponse, parseRequest } from "../../src/server/utils/response";
 import { userRepository } from "../../src/server/database/repositories/user.repository";
+import { webhookRepository } from "../../src/server/database/repositories/webhook.repository";
+import { verifySvixSignature } from "../../src/server/auth/svixVerification";
 
 export const config = {
   runtime: "nodejs"
@@ -8,18 +10,16 @@ export const config = {
 /**
  * POST /api/webhooks/clerk
  *
- * Prepared integration boundary for Clerk webhook event ingestion.
+ * Production Clerk webhook endpoint with cryptographic Svix HMAC signature verification
+ * and an idempotency ledger to prevent replay attacks.
+ *
  * Handles user lifecycle events:
  *   - user.created: Creates or reconciles the FoodCue user profile.
  *   - user.updated: Updates email, display name, and username.
  *   - user.deleted: Sets deleted_at timestamp (soft-delete).
- *
- * In accordance with Phase 4 security requirements:
- * If CLERK_WEBHOOK_SIGNING_SECRET is not yet configured, the endpoint fails closed (HTTP 503)
- * and refuses to process unverified events.
  */
 export default async function handler(req: Request): Promise<Response> {
-  const { headers, method, json } = await parseRequest(req);
+  const { headers, method, text } = await parseRequest(req);
 
   if (method !== "POST") {
     return jsonResponse({ error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
@@ -61,27 +61,54 @@ export default async function handler(req: Request): Promise<Response> {
     );
   }
 
-  // 3. Process payload
+  // 3. Read raw payload text for signature verification
+  const rawBody = await text();
+  if (!rawBody) {
+    return jsonResponse({ error: "Empty webhook payload.", code: "EMPTY_PAYLOAD" }, 400);
+  }
+
+  // 4. Verify cryptographic Svix signature
   try {
-    const payload = await json<{
-      type: string;
-      data: {
-        id: string;
-        email_addresses?: Array<{ id: string; email_address: string }>;
-        primary_email_address_id?: string;
-        first_name?: string;
-        last_name?: string;
-        username?: string;
-      };
-    }>();
+    verifySvixSignature(rawBody, { id: svixId, timestamp: svixTimestamp, signature: svixSignature }, webhookSecret);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Invalid webhook signature";
+    return jsonResponse({ error: message, code: "INVALID_SIGNATURE" }, 401);
+  }
 
-    if (!payload || !payload.type || !payload.data?.id) {
-      return jsonResponse({ error: "Invalid webhook payload structure.", code: "INVALID_PAYLOAD" }, 400);
-    }
+  // 5. Parse JSON payload
+  let payload: {
+    type: string;
+    data: {
+      id: string;
+      email_addresses?: Array<{ id: string; email_address: string }>;
+      primary_email_address_id?: string;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+    };
+  };
 
-    const { type, data } = payload;
-    const clerkUserId = data.id;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return jsonResponse({ error: "Malformed JSON payload.", code: "INVALID_JSON" }, 400);
+  }
 
+  if (!payload || !payload.type || !payload.data?.id) {
+    return jsonResponse({ error: "Invalid webhook payload structure.", code: "INVALID_PAYLOAD" }, 400);
+  }
+
+  const { type, data } = payload;
+  const clerkUserId = data.id;
+
+  // 6. Idempotency Check: Claim event to prevent double-processing or replay attacks
+  const isNew = await webhookRepository.claimEvent(svixId, type, payload as unknown as Record<string, unknown>);
+  if (!isNew) {
+    return jsonResponse({ received: true, deduplicated: true, eventId: svixId }, 200);
+  }
+
+  // 7. Execute business logic based on event type
+  try {
     const primaryEmail =
       data.email_addresses?.find((e) => e.id === data.primary_email_address_id)?.email_address ??
       data.email_addresses?.[0]?.email_address ??
@@ -111,13 +138,15 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       default:
-        // Acknowledge other events without action
+        // Acknowledge other events (e.g. session.created, organization.created) without error
         break;
     }
 
-    return jsonResponse({ received: true, event: type, userId: clerkUserId }, 200);
+    await webhookRepository.markStatus(svixId, "processed");
+    return jsonResponse({ received: true, event: type, userId: clerkUserId, eventId: svixId }, 200);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Webhook handler failed";
+    await webhookRepository.markStatus(svixId, "failed", msg);
     return jsonResponse({ error: msg, code: "WEBHOOK_PROCESSING_FAILED" }, 500);
   }
 }

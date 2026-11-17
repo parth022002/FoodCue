@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/react";
 import { Navbar } from "../components/navigation/Navbar";
 import { Footer } from "../components/navigation/Footer";
 import { SmartScan } from "../features/smartscan/SmartScan";
@@ -8,7 +9,7 @@ import { ShoppingList } from "../features/shopping/ShoppingList";
 import { CatalogView } from "../features/catalog/CatalogView";
 import { ProfileView } from "../features/profile/ProfileView";
 import { Privacy } from "../features/privacy/Privacy";
-import { testNeonConnection } from "../adapters/storage/neonDatabase";
+import { syncCoordinator } from "../sync/engine/syncCoordinator";
 import type { VerifiedFoodProduct } from "../domain/entities/catalogData";
 
 export type ActiveTab =
@@ -20,18 +21,27 @@ export type ActiveTab =
   | "profile"
   | "privacy";
 
+function CloudSyncBridge() {
+  const { getToken, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (isSignedIn) {
+      syncCoordinator.initialize(async () => getToken());
+    }
+  }, [isSignedIn, getToken]);
+
+  return null;
+}
+
 export function App() {
   const [tab, setTab] = useState<ActiveTab>("scan");
   const [selectedGtinForScan, setSelectedGtinForScan] = useState<string>("");
-  const [neonConnected, setNeonConnected] = useState<boolean>(false);
   const [calmModeActive, setCalmModeActive] = useState<boolean>(false);
 
-  useEffect(() => {
-    // Check Neon database connection status on mount
-    testNeonConnection()
-      .then((res) => setNeonConnected(res.connected))
-      .catch(() => setNeonConnected(false));
-  }, []);
+  const hasClerkKey = Boolean(
+    import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+    import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+  );
 
   function handleSelectProductForScan(gtin: string) {
     setSelectedGtinForScan(gtin);
@@ -47,11 +57,12 @@ export function App() {
 
   return (
     <div className={`app-shell ${calmModeActive ? "calm-mode" : ""}`}>
+      {hasClerkKey && <CloudSyncBridge />}
+
       {/* Redesigned Sticky Topbar with Left Brand, Center Nav & Right Profile/Auth */}
       <Navbar
         activeTab={tab}
         onSelectTab={setTab}
-        syncActive={neonConnected}
       />
 
       {/* Main Content Area */}

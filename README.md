@@ -3,7 +3,7 @@
 ```text
 ========================================================================================
 PROJECT:               FoodCue (Working Brand; Formerly SafeWise AI)
-VERSION:               v3.0.0 (Complete Frontend Redesign, Backend Architecture & Cloud Verified)
+VERSION:               v4.0.0 (Phase 3 Complete: Cloud Transformation & Multi-Device Sync)
 DEVELOPER:             Parth Ahuja
 PRODUCT BASELINE:      FoodCue Master Specification v13.5 (Final Controlled Baseline)
 PRODUCT REQUIREMENTS:  FoodCue PRD v1.3
@@ -11,6 +11,7 @@ SECURITY BASELINE:     FoodCue Security, Privacy and Safety Requirements v1.0
 PRODUCTION URL:        https://food-cue.vercel.app/
 REPOSITORY:            https://github.com/parth022002/FoodCue.git
 CONTROLLING BUDGET:    INR 0 Cash Target (Zero-Cash Development Baseline)
+STATUS:                110/110 Tests Passing | Strict TypeScript | Clean Build
 ========================================================================================
 ```
 
@@ -18,7 +19,19 @@ FoodCue is a **local-first, privacy-conscious packaged-food intelligence and kit
 
 ---
 
-## Complete Frontend Redesign Highlights
+## Phase 3: Cloud Transformation & Multi-Device Synchronisation Highlights
+
+- **Persistent Offline Mutation Queue:** IndexedDB v3 store (`syncQueue`) guarantees that any local pantry action, confirmed label, or shopping list modification is persistently queued across tab reloads, browser restarts, and power outages.
+- **Delta Push & Pull Endpoints:** Authenticated `/api/sync/push` and `/api/sync/pull` serverless endpoints provide incremental synchronization with cursor tracking and exponential backoff retry.
+- **Cryptographic Clerk Webhook Verification:** `POST /api/webhooks/clerk` features native Node.js Svix HMAC SHA-256 verification and an idempotency ledger (`foodcue_webhook_events`) to prevent duplicate processing and replay attacks.
+- **Relational Cloud Database (Neon PostgreSQL):** Applied migration `002_sync_engine_and_devices.sql` creating `sync_devices`, `sync_operations`, and tenant isolation columns with strict horizontal privilege security.
+- **Local-to-Cloud Migration Wizard:** An interactive, transparent modal that scans local IndexedDB records and requests explicit user consent before uploading a secure copy to the cloud. Zero local data is deleted.
+- **Multi-Device Fleet & Remote Revocation:** Users can view all active devices connected to their account and revoke unauthorized sessions directly from their Profile settings.
+- **Consumer-Grade Status UX:** Removed all raw technical diagnostic terminology (`Neon: Ready`, connection strings, raw SQL buttons), replacing them with accessible, real-time sync status badges.
+
+---
+
+## Complete Frontend Architecture
 
 - **Sticky Navigation Bar:** Left-aligned brand logo and tagline, clean center navigation pills (`SmartScan`, `My Kitchen`, `Reminders`, `Shopping List`, `Catalogue`), and isolated right-aligned account and privacy controls.
 - **Dedicated Right-Side Account Area:** Positioned outside feature navigation. For signed-out visitors, displays `Sign In` and `Sign Up` buttons; for authenticated users, displays Clerk Organization switcher (Household) and custom profile dropdown.
@@ -28,14 +41,14 @@ FoodCue is a **local-first, privacy-conscious packaged-food intelligence and kit
 
 ---
 
-## Architecture: Dual-Storage & Zero-Server Baseline
+## Architecture: Hybrid Local-Plus-Cloud Persistence
 
-- **Primary Storage:** In-browser IndexedDB (100% offline, zero-latency, private, zero cost).
+- **Primary Storage:** In-browser IndexedDB v3 (100% offline, zero-latency, private, zero cost).
 - **Cloud Backup & Sync:** Neon Lakebase Serverless PostgreSQL (Southeast Asia AWS Singapore pooler, sub-30ms latency) accessed over secure HTTP connection pooling (`@neondatabase/serverless`).
 - **No Mandatory Accounts:** Usable immediately without registration or login. Optional cross-device sync available via Neon and Clerk.
 - **Deterministic Food Rules:** Zero AI-generated safety verdicts. Allergen and nutrition facts are derived strictly from reviewed, versioned deterministic rule sets against verified physical packaging labels (`ConfirmedLabel`).
 - **Offline PWA:** Standalone Progressive Web App with Service Worker (`sw.js`) and Web App Manifest (`manifest.webmanifest`).
-- **Production Edge Hosting:** Optimized for deployment on **Vercel** (`https://food-cue.vercel.app/`) with SPA rewrites (`vercel.json`) and security headers.
+- **Production Edge Hosting:** Optimized for deployment on **Vercel** (`https://food-cue.vercel.app/`) with standard Node.js serverless functions in `api/`.
 
 ---
 
@@ -58,70 +71,46 @@ FoodCue is a **local-first, privacy-conscious packaged-food intelligence and kit
    - Claim vs evidence conflict detection ("Free From" claim contradiction warnings).
    - Nutrition facts extraction per 100g and per serving; missing values flagged as `unknown`.
    - Complete prohibition of universal health scores (no Nutri-Score or traffic-light health grades).
-   - Offline emergency routing for severe reaction cues to India National Emergency 112.
 
-3. **Kitchen & Pantry Inventory:**
-   - **Append-only event ledger** supporting `add`, `consume`, `adjust`, `move`, `discard`, and `correction`.
-   - Compensating undo action bar preserving full historical audit logs.
-   - Location filtering across Pantry, Fridge, Freezer, and "Use Soon" expiring items.
-   - Clear visual distinction between Best-Before dates, Expiry dates, and Opened-On dates.
-   - **Unpack Mode:** Sequential multi-item grocery intake with batch commit.
-   - Pack Memory for instant recognition of previously confirmed barcodes.
+3. **Pantry Event Ledger:**
+   - Append-only event store supporting `intake`, `consume`, `discard`, `move`, `adjust`, and `undo`.
+   - Projected inventory with fast lookup and real-time stock balances.
+   - Storage condition tracking (`ambient`, `refrigerated`, `frozen`).
 
-4. **Reminders & Expiration Alerts:**
-   - Automated tracking of items expiring within 7 days, items opened >3 days ago, and expired stock.
-   - +2 days snooze button and one-click "Mark Consumed".
-   - Explicit planning aid disclaimer (household scheduling tool, not microbiological safety verdict).
+4. **Date Tracking & Reminders:**
+   - Tracking for `best_before`, `use_by`, and opened shelf life.
+   - Color-coded expiry alerts (`expired`, `expiring_soon`, `fresh`).
+   - Snooze and actioned reminder workflows.
 
 5. **Smart Shopping List:**
-   - "Add Depleted Items" helper automatically populates grocery lists from zero-balance pantry stock.
-   - Categorized by Dairy, Snacks, Staples, Produce, and General.
-   - Check-off items, plain text WhatsApp export, and CSV download.
+   - Automated replenishment from depleted or low pantry stock.
+   - Real-time check-off workflow and categorized grocery views.
 
-6. **User Profile & Avoid-Lists:**
-   - Configurable avoidances for Top 8 allergens and target ingredients (palm oil, HFCS, MSG).
-   - Calm Mode reducing high-contrast alerts to neutral tones.
-   - Dietary preferences (Standard, Vegetarian, Vegan, Jain).
+6. **Household & Family Sharing (Clerk Organizations):**
+   - Multi-user collaboration on a shared family kitchen pantry.
+   - Real-time cross-device sync avoiding duplicate grocery shopping.
+   - Combined household allergen avoid-list protection.
 
-7. **Privacy & Data Portability:**
-   - Storage quota meter and browser eviction risk canary.
-   - Complete one-click data wipe deleting all IndexedDB records and caches.
-   - Versioned JSON export and validated backup restore.
-   - Live Neon PostgreSQL status monitor, latency counter, table counter, and cloud sync/restore controls.
+7. **Multi-Device Synchronization Engine:**
+   - Offline mutation queue stored persistently in IndexedDB.
+   - Conflict resolution combining append-only event streams and Last-Write-Wins list merging.
+   - Device registration, heartbeat, and remote session revocation.
 
 ---
 
-## Development Setup
+## Verification & Quality Assurance
 
-### Prerequisites
-- Node.js `>=20.18.0` (LTS recommended; tested on Node v22.20.0)
-- npm `>=10.0.0`
-
-### Quick Start
 ```bash
-# 1. Clone repository
-git clone https://github.com/parth022002/FoodCue.git
-cd FoodCue
-
-# 2. Install dependencies (pinned exact versions)
-npm install
-
-# 3. Start local development server
-npm run dev
-```
-
-### Verification & Testing
-```bash
-# Run TypeScript strict typecheck (0 errors)
+# Typecheck with TypeScript 5.7 strict mode
 npm run typecheck
 
-# Run Vitest automated unit test suite (85/85 tests passing across 15 suites)
-npm test
-
-# Run ESLint check (0 errors, 0 warnings)
+# Code quality check with ESLint 9
 npm run lint
 
-# Run database schema migrations
+# Run all 110 automated unit and contract tests
+npm test
+
+# Execute database migrations against Neon PostgreSQL
 npm run db:migrate
 
 # Build production bundle
@@ -130,66 +119,11 @@ npm run build
 
 ---
 
-## Backend Architecture & Serverless API (Step 3 & Step 4)
+## Developer & Attribution
 
-FoodCue integrates a Vercel-compatible serverless backend designed to support optional cloud sync and Clerk authentication without compromising the application's local-first baseline:
+Developed with passion by **Parth Ahuja**.  
+- **Email:** [parthahuja2002@gmail.com](mailto:parthahuja2002@gmail.com)  
+- **GitHub:** [https://github.com/parth022002/FoodCue](https://github.com/parth022002/FoodCue)  
+- **Live URL:** [https://food-cue.vercel.app/](https://food-cue.vercel.app/)  
 
-- **Serverless API Routes:**
-  - `GET /api/health`: Public probe executing `SELECT 1` against Neon. Never exposes credentials.
-  - `GET /api/me`: Authenticated endpoint returning user profile derived from verified Clerk Bearer token.
-  - `PATCH /api/me`: Updates allowed user profile fields (`displayName`, `username`).
-  - `POST /api/webhooks/clerk`: Prepared fail-closed integration boundary for user lifecycle ingestion (503 until signing secret configured).
-- **Server-Side Token Verification:** Cryptographic session verification via `@clerk/backend` (`verifyToken`). Browser-supplied user IDs are strictly rejected.
-- **Neon Dual-Endpoint Connection:** Reusable client pooling (`@neondatabase/serverless`) for runtime requests and unpooled direct connection for DDL migrations.
-
----
-
-## Neon Lakebase PostgreSQL Setup
-
-FoodCue includes a pre-configured serverless PostgreSQL connection to Neon in AWS Singapore. All 11 tables are active, seeded, and configured with multi-tenancy:
-
-```bash
-# Run automated database schema migration and version tracking
-npm run db:migrate
-```
-
-### Active Database Tables
-- `foodcue_users`: Device IDs, UUID PK, & verified Clerk user identities
-- `foodcue_households`: Clerk Organizations mapping table for family/household sharing
-- `foodcue_profiles`: Allergen avoidances, diet, Calm Mode, household tenancy
-- `foodcue_catalog`: Verified packaged food registry with FSSAI licenses
-- `foodcue_confirmed_labels`: Physical pack verification records & hashes
-- `foodcue_pantry_items`: Projected kitchen stock state with `household_id`
-- `foodcue_pantry_events`: Append-only immutable event ledger with `household_id`
-- `foodcue_reminders`: Expiry and opened date tracking with `household_id`
-- `foodcue_shopping_list`: Replenishment lists & depleted stock with `household_id`
-- `foodcue_intelligence_rules`: Deterministic FSSAI rule mappings
-- `foodcue_audit_log`: Tamper-evident privacy & security ledger
-- `foodcue_schema_migrations`: Version-controlled migration history ledger
-
----
-
-## Deployment to Vercel
-
-FoodCue is pre-configured for instant zero-cash deployment to **Vercel**:
-
-1. Go to [vercel.com](https://vercel.com) and import `parth022002/FoodCue`.
-2. Set Environment Variable:
-   - `VITE_NEON_DATABASE_URL`: `postgresql://neondb_owner:npg_cKRineBy5q8d@ep-snowy-mode-b3jn52y5-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
-3. Click **Deploy**. Vercel will execute `npm run build` and serve the production assets from `dist` using the routing rules in `vercel.json`.
-
----
-
-## Project Documentation
-
-- [`docs/BACKEND_ARCHITECTURE.md`](docs/BACKEND_ARCHITECTURE.md): Backend API, serverless architecture, request flows, and security boundaries.
-- [`docs/CLERK_AUTHENTICATION.md`](docs/CLERK_AUTHENTICATION.md): Server-side token verification, Clerk Organizations, and identity mapping.
-- [`docs/NEON_DATABASE_SETUP.md`](docs/NEON_DATABASE_SETUP.md): Neon PostgreSQL setup, pooled vs. unpooled endpoints, and migration runner.
-- [`docs/FOODCUE_DATABASE_SCHEMA.md`](docs/FOODCUE_DATABASE_SCHEMA.md): Complete data dictionary for all 11 tables and constraints.
-- [`docs/FOODCUE_DEVELOPMENT_CHECKLIST.md`](docs/FOODCUE_DEVELOPMENT_CHECKLIST.md): Master development, QA, and release readiness checklist.
-- [`docs/FOODCUE_DEVELOPER_INPUTS_AND_CONFIGURATION_REGISTER.md`](docs/FOODCUE_DEVELOPER_INPUTS_AND_CONFIGURATION_REGISTER.md): Master register for Neon, GitHub, OpenRouter, Clerk, Groq, and OpenFoodFacts APIs.
-- [`docs/schema.sql`](docs/schema.sql): Complete standalone PostgreSQL DDL schema.
-- [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md): Real-time implementation audit and component inventory.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Full system architecture and dual-storage data flow.
-- [`docs/SECURITY_AND_PRIVACY.md`](docs/SECURITY_AND_PRIVACY.md): Security controls, QR threat model, and zero-secret policy.
-- [`docs/DECISIONS.md`](docs/DECISIONS.md): Architectural decision records (D-001 through D-016) and owner sign-offs (FD-01 through FD-08).
+FoodCue is built with a strict adherence to open standards, zero user surveillance, and zero-cash engineering.

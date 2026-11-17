@@ -20,7 +20,8 @@ vi.mock("@clerk/react", () => ({
   SignOutButton: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   OrganizationSwitcher: () => <div data-testid="org-switcher" />,
   useUser: () => ({ user: null, isSignedIn: false, isLoaded: true }),
-  useOrganization: () => ({ organization: null, isLoaded: true })
+  useOrganization: () => ({ organization: null, isLoaded: true }),
+  useAuth: () => ({ getToken: async () => null, isSignedIn: false, isLoaded: true })
 }));
 
 describe("FoodCue Brand & Navigation Redesign", () => {

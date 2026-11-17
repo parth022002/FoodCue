@@ -4,16 +4,11 @@ import {
   getAllRecords,
   putRecord
 } from "../../adapters/storage/database";
-import {
-  testNeonConnection,
-  syncPantryEventsToNeon,
-  fetchPantryEventsFromNeon,
-  initializeNeonSchema,
-  parseNeonHost,
-  type NeonConnectionStatus
-} from "../../adapters/storage/neonDatabase";
 import type { PantryEvent } from "../../domain/entities/pantry";
 import type { ConfirmedLabel, ProductCandidate } from "../../domain/entities/food";
+import { syncStatus } from "../../sync/state/syncStatus";
+import { syncCoordinator } from "../../sync/engine/syncCoordinator";
+import { MigrationWizard } from "../sync/MigrationWizard";
 import {
   Shield,
   Database,
@@ -23,19 +18,24 @@ import {
   Trash2,
   CheckCircle2,
   RefreshCw,
-  Server,
   Camera,
   AlertTriangle,
   Code2,
   UserCheck,
   HardDrive,
-  Info
+  Info,
+  Smartphone,
+  Server
 } from "lucide-react";
 
 export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showMigrationWizard, setShowMigrationWizard] = useState(false);
+  const [syncState, setSyncState] = useState(syncStatus.getState());
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const [stats, setStats] = useState({
     candidates: 0,
     confirmedLabels: 0,
@@ -47,19 +47,15 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
     percent: 0
   });
 
-  // Neon Database State
-  const [neonStatus, setNeonStatus] = useState<NeonConnectionStatus>({
-    connected: false,
-    host: "ep-snowy-mode-b3jn52y5-pooler.c-4.ap-southeast-1.aws.neon.tech",
-    database: "neondb"
-  });
-  const [isTestingNeon, setIsTestingNeon] = useState(false);
-  const [isSyncingNeon, setIsSyncingNeon] = useState(false);
-
   useEffect(() => {
     loadLocalStats();
     loadStorageQuota();
-    handleTestNeon();
+
+    const unsubscribe = syncStatus.subscribe((s) => {
+      setSyncState(s);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   async function loadLocalStats() {
@@ -91,83 +87,22 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
     }
   }
 
-  async function handleTestNeon() {
-    setIsTestingNeon(true);
+  async function handleTriggerSync() {
+    setIsSyncing(true);
+    setMessage("");
     setErrorMsg("");
     try {
-      const res = await testNeonConnection();
-      setNeonStatus(res);
-      if (res.connected) {
-        setMessage(`Connected to Neon Postgres (${res.serverVersion || "v16"}, ${res.latencyMs}ms latency).`);
+      const success = await syncCoordinator.triggerSync();
+      if (success) {
+        setMessage("All kitchen records synchronized with your private cloud account.");
       } else {
-        setErrorMsg(`Neon connection check: ${res.error}`);
-      }
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "Connection failed");
-    } finally {
-      setIsTestingNeon(false);
-    }
-  }
-
-  async function handleSyncToNeon() {
-    setIsSyncingNeon(true);
-    setMessage("");
-    setErrorMsg("");
-    try {
-      const events = await getAllRecords<PantryEvent>("pantryEvents");
-      if (events.length === 0) {
-        setMessage("No local pantry events to sync yet. Add items in My Kitchen first.");
-        setIsSyncingNeon(false);
-        return;
-      }
-      const count = await syncPantryEventsToNeon(events);
-      setMessage(`Successfully synced ${count} pantry ledger event(s) to Neon Postgres.`);
-      await handleTestNeon();
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "Failed to sync to Neon.");
-    } finally {
-      setIsSyncingNeon(false);
-    }
-  }
-
-  async function handleRestoreFromNeon() {
-    setIsSyncingNeon(true);
-    setMessage("");
-    setErrorMsg("");
-    try {
-      const cloudEvents = await fetchPantryEventsFromNeon();
-      if (cloudEvents.length === 0) {
-        setMessage("No pantry events found in Neon cloud database.");
-        setIsSyncingNeon(false);
-        return;
-      }
-      for (const ev of cloudEvents) {
-        await putRecord("pantryEvents", { ...ev, id: ev.eventId });
+        setMessage("Sync completed or currently offline. Local changes remain queued.");
       }
       await loadLocalStats();
-      setMessage(`Restored ${cloudEvents.length} event(s) from Neon database into local IndexedDB.`);
-      if (onDataRestored) onDataRestored();
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "Restore from Neon failed.");
+      setErrorMsg(e instanceof Error ? e.message : "Sync error occurred");
     } finally {
-      setIsSyncingNeon(false);
-    }
-  }
-
-  async function handleInitSchema() {
-    setIsSyncingNeon(true);
-    try {
-      const res = await initializeNeonSchema();
-      if (res.success) {
-        setMessage(res.message);
-        await handleTestNeon();
-      } else {
-        setErrorMsg(res.message);
-      }
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "Failed to initialize schema.");
-    } finally {
-      setIsSyncingNeon(false);
+      setIsSyncing(false);
     }
   }
 
@@ -240,51 +175,45 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
     }
   }
 
-  const neonInfo = parseNeonHost(
-    (import.meta as unknown as { env?: { VITE_NEON_DATABASE_URL?: string } }).env?.VITE_NEON_DATABASE_URL || null
-  );
+  const consumerStatus = syncStatus.getConsumerLabel();
 
   return (
     <div className="privacy-page-container" aria-labelledby="privacy-page-title">
       {/* Notifications */}
       {message && (
-        <div className="alert-banner alert-success mb-24" role="status">
+        <div className="alert-banner alert-success" role="alert">
           <CheckCircle2 className="alert-icon" />
           <span>{message}</span>
-          <button type="button" className="alert-close" onClick={() => setMessage("")}>×</button>
+          <button type="button" className="alert-close-btn" onClick={() => setMessage("")} aria-label="Dismiss alert">✕</button>
         </div>
       )}
 
       {errorMsg && (
-        <div className="alert-banner alert-danger mb-24" role="alert">
+        <div className="alert-banner alert-danger" role="alert">
           <AlertTriangle className="alert-icon" />
           <span>{errorMsg}</span>
-          <button type="button" className="alert-close" onClick={() => setErrorMsg("")}>×</button>
+          <button type="button" className="alert-close-btn" onClick={() => setErrorMsg("")} aria-label="Dismiss alert">✕</button>
         </div>
       )}
 
-      {/* Hero Section */}
-      <div className="privacy-hero-card mb-24">
-        <div className="privacy-hero-content">
-          <div className="privacy-hero-badge">
-            <Shield className="hero-shield-icon" aria-hidden="true" />
-            <span>Privacy & Data Sovereignty</span>
-          </div>
-          <h1 id="privacy-page-title" className="privacy-hero-title">
-            Your food data. Your control.
-          </h1>
-          <p className="privacy-hero-subtitle">
-            FoodCue is built local-first. We believe what you eat and keep in your household pantry is private by default. You can use every core feature without an account, and your data stays on your device unless you explicitly opt in to cloud synchronization.
-          </p>
+      {/* Header Banner */}
+      <header className="privacy-header-banner">
+        <div className="privacy-header-badge">
+          <Shield className="badge-icon-svg" />
+          <span>Privacy-By-Design & Local-First Security</span>
         </div>
-      </div>
+        <h1 id="privacy-page-title" className="privacy-header-title">Privacy Policy & Data Sovereignty</h1>
+        <p className="privacy-header-sub">
+          At FoodCue, your food data belongs strictly to you. We operate on a local-first architecture: your scans, pantry inventory, allergen avoid-lists, and dates reside privately inside your browser&apos;s IndexedDB and are never tracked, monetized, or sold.
+        </p>
+      </header>
 
       {/* 8 Core Privacy Sections */}
-      <div className="privacy-sections-grid">
+      <div className="privacy-sections-layout">
         {/* Section 1: Privacy at FoodCue */}
         <section className="privacy-card" aria-labelledby="sec-1-title">
           <div className="privacy-card-header">
-            <div className="card-icon-pill bg-brand-light">
+            <div className="card-icon-pill bg-green-light">
               <Shield className="card-icon text-brand" />
             </div>
             <div>
@@ -294,15 +223,13 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
           </div>
           <div className="privacy-card-body">
             <p>
-              FoodCue is governed by strict local-first and privacy-by-default architecture principles.
-              Unlike typical cloud-based grocery apps, FoodCue executes barcode decoding, optical character recognition (OCR),
-              and food-safety intelligence computations directly inside your web browser.
+              FoodCue is built with a singular premise: <strong>kitchen intelligence should not require personal surveillance</strong>. We do not run third-party advertising trackers, behavioural cookies, or ad retargeting pixels.
             </p>
-            <div className="principles-tags-row mt-12">
-              <span className="principle-pill">No Mandatory Accounts</span>
-              <span className="principle-pill">No Tracking Cookies</span>
-              <span className="principle-pill">Zero Cash Target (INR 0)</span>
-            </div>
+            <ul className="bullet-list mt-12">
+              <li><strong>Zero Ad Trackers:</strong> No Google Analytics advertising IDs, Facebook Pixels, or cross-site tracking beacons.</li>
+              <li><strong>Deterministic Evaluation:</strong> Ingredient evaluations and allergen flags are run locally using embedded deterministic rules based on FSSAI Food Safety Standards (2020).</li>
+              <li><strong>Anonymous by Default:</strong> You are free to use FoodCue without creating an account or providing an email address.</li>
+            </ul>
           </div>
         </section>
 
@@ -314,19 +241,17 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
             </div>
             <div>
               <span className="section-number">Section 2</span>
-              <h2 id="sec-2-title" className="section-heading">Local-First Storage</h2>
+              <h2 id="sec-2-title" className="section-heading">Local-First Storage (IndexedDB)</h2>
             </div>
           </div>
           <div className="privacy-card-body">
             <p>
-              All product scans, candidate records, pantry inventory items, and shopping lists are saved in your browser&apos;s
-              <strong> IndexedDB</strong> engine. No data leaves your machine unless you enable cloud sync.
+              All application state is saved directly inside your browser using <strong>IndexedDB (v3: foodcue-local)</strong>. This includes your scanned product candidates, confirmed packaging labels, nutrition evaluations, and pantry event log.
             </p>
 
-            {/* Storage Quota & Stats Breakdown */}
-            <div className="storage-stats-box mt-16">
-              <div className="stats-box-header">
-                <span className="font-semibold text-sm">IndexedDB Local Persistence State</span>
+            <div className="storage-meter-box mt-16">
+              <div className="storage-meter-header">
+                <span className="font-semibold text-sm">Device Storage Usage</span>
                 <span className="text-xs text-muted">
                   Used: {quota.usedMB} MB / {quota.totalMB > 0 ? `${quota.totalMB} MB` : "Quota Dynamic"} ({quota.percent}%)
                 </span>
@@ -395,64 +320,68 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
           </div>
           <div className="privacy-card-body">
             <p>
-              When explicitly enabled, FoodCue synchronizes your pantry event ledger to a private serverless
-              <strong> Neon PostgreSQL</strong> database located in AWS Singapore (<code>ap-southeast-1</code>).
+              When you opt in to multi-device synchronization, FoodCue securely replicates your pantry ledger, shopping list, and confirmed product labels to your private encrypted cloud account.
             </p>
 
             <div className="neon-status-card mt-12">
               <div className="status-indicator-row">
                 <div className="status-flex">
-                  <span className={`status-bubble ${neonStatus.connected ? "bg-green" : "bg-gray"}`} />
+                  <span className={`status-bubble ${consumerStatus.variant === "success" ? "bg-green" : "bg-gray"}`} />
                   <div>
-                    <strong className="text-sm">Neon Lakebase PostgreSQL</strong>
+                    <strong className="text-sm">{consumerStatus.text}</strong>
                     <div className="tiny text-muted">
-                      Host: <code>{neonInfo.host || neonStatus.host}</code>
+                      {syncState.lastSyncTime
+                        ? `Last synced: ${new Date(syncState.lastSyncTime).toLocaleTimeString()}`
+                        : "Encrypted delta synchronization"}
                     </div>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="btn-secondary-sm"
-                  onClick={handleTestNeon}
-                  disabled={isTestingNeon}
-                >
-                  <RefreshCw className={`btn-icon-xs ${isTestingNeon ? "spin" : ""}`} />
-                  {isTestingNeon ? "Testing..." : "Test Connection"}
-                </button>
+                <div className="sync-actions-row">
+                  {syncState.isCloudEnabled ? (
+                    <button
+                      type="button"
+                      className="btn-secondary-sm"
+                      onClick={handleTriggerSync}
+                      disabled={isSyncing}
+                    >
+                      <RefreshCw className={`btn-icon-xs ${isSyncing ? "spin" : ""}`} />
+                      {isSyncing ? "Syncing..." : "Sync Now"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-primary-sm"
+                      onClick={() => setShowMigrationWizard(true)}
+                    >
+                      <Cloud className="btn-icon-xs" />
+                      Enable Cloud Sync
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="sync-actions-row mt-12">
-                <button
-                  type="button"
-                  className="btn-outline-sm"
-                  onClick={handleSyncToNeon}
-                  disabled={isSyncingNeon}
-                >
-                  <Upload className="btn-icon-xs" />
-                  {isSyncingNeon ? "Syncing..." : "Sync Local Events to Cloud"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-outline-sm"
-                  onClick={handleRestoreFromNeon}
-                  disabled={isSyncingNeon}
-                >
-                  <Download className="btn-icon-xs" />
-                  Restore from Cloud to Local
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-ghost-sm"
-                  onClick={handleInitSchema}
-                  title="Run initial SQL migrations on Neon database"
-                >
-                  Verify DB Schema
-                </button>
+              <div className="features-value-grid mt-16">
+                <div className="feature-mini-card">
+                  <Smartphone className="mini-card-icon text-brand" />
+                  <div>
+                    <strong className="text-xs">Offline-First Engine</strong>
+                    <p className="tiny text-muted">Mutations queue locally and auto-flush on reconnection.</p>
+                  </div>
+                </div>
+                <div className="feature-mini-card">
+                  <Shield className="mini-card-icon text-emerald" />
+                  <div>
+                    <strong className="text-xs">End-to-End User Isolation</strong>
+                    <p className="tiny text-muted">Strict horizontal authorization prevents cross-user access.</p>
+                  </div>
+                </div>
               </div>
             </div>
+
+            <p className="tiny text-muted mt-12">
+              <Info className="inline-icon" /> <em>Zero-Lock-in Guarantee:</em> You can disable cloud sync or delete all cloud records at any time. Your local device copy remains fully functional.
+            </p>
           </div>
         </section>
 
@@ -469,111 +398,113 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
           </div>
           <div className="privacy-card-body">
             <p>
-              SmartScan only accesses your device camera when you explicitly press &quot;Scan with Camera&quot;.
-              Camera streams and uploaded package photos are processed <strong>100% locally</strong> on your device
-              using WebAssembly barcode decoding (<code>@sec-ant/zxing-wasm</code>) and browser Web Workers.
+              SmartScan uses your device camera solely for local optical barcode recognition and label text recognition:
             </p>
-            <p className="mt-8">
-              No photos or live camera video frames are ever uploaded, recorded, or transmitted to any external server.
-            </p>
+            <ul className="bullet-list mt-12">
+              <li><strong>Local Frame Processing:</strong> Camera video frames are processed on-device using WebAssembly (ZXing). No live video stream is transmitted to external servers.</li>
+              <li><strong>Physical Confirmation Gate:</strong> Scanned candidates require your physical package verification before being confirmed into your pantry.</li>
+              <li><strong>Temporary Storage:</strong> Uploaded photo panels are stored exclusively inside your browser&apos;s local IndexedDB.</li>
+            </ul>
           </div>
         </section>
 
         {/* Section 6: External Services */}
         <section className="privacy-card" aria-labelledby="sec-6-title">
           <div className="privacy-card-header">
-            <div className="card-icon-pill bg-slate-light">
-              <Server className="card-icon text-slate" />
+            <div className="card-icon-pill bg-cyan-light">
+              <Server className="card-icon text-cyan" />
             </div>
             <div>
               <span className="section-number">Section 6</span>
-              <h2 id="sec-6-title" className="section-heading">External Services</h2>
+              <h2 id="sec-6-title" className="section-heading">External Services & Infrastructure</h2>
             </div>
           </div>
           <div className="privacy-card-body">
-            <p>
-              FoodCue connects exclusively to transparent, sanctioned infrastructure. Here is every service integrated:
-            </p>
-            <ul className="service-bullet-list mt-8">
-              <li>
-                <strong>Clerk:</strong> Optional authentication provider (manages session tokens, OAuth, and Household Organizations).
-              </li>
-              <li>
-                <strong>Neon PostgreSQL:</strong> Optional serverless database in AWS Singapore (holds synchronized pantry events and user profiles).
-              </li>
-              <li>
-                <strong>Open Food Facts:</strong> Public product intelligence catalog (queried only when scanning a GTIN not in local cache).
-              </li>
-              <li>
-                <strong>Vercel:</strong> Static Edge PWA hosting and serverless API routing with strict CSP security headers.
-              </li>
+            <p>FoodCue relies on minimal, highly-vetted cloud infrastructure to maintain its Zero-Cash high-availability SLA:</p>
+            <ul className="bullet-list mt-12">
+              <li><strong>Vercel Serverless Edge:</strong> Static asset delivery, caching, and serverless authentication endpoints.</li>
+              <li><strong>Clerk Identity Platform:</strong> Authentication tokens, user sessions, and Household organization access control.</li>
+              <li><strong>Neon Serverless PostgreSQL:</strong> Encrypted multi-device synchronization backend with tenant isolation.</li>
+              <li><strong>Open Food Facts (Optional Fallback):</strong> Public product catalog queries when an item is not found in our pre-verified database.</li>
             </ul>
           </div>
         </section>
 
         {/* Section 7: Data Management */}
-        <section className="privacy-card full-width-card" aria-labelledby="sec-7-title">
+        <section className="privacy-card" aria-labelledby="sec-7-title">
           <div className="privacy-card-header">
-            <div className="card-icon-pill bg-rose-light">
-              <Database className="card-icon text-rose" />
+            <div className="card-icon-pill bg-teal-light">
+              <Database className="card-icon text-teal" />
             </div>
             <div>
               <span className="section-number">Section 7</span>
-              <h2 id="sec-7-title" className="section-heading">Data Management & Sovereign Controls</h2>
+              <h2 id="sec-7-title" className="section-heading">Data Management & Offline Backups</h2>
             </div>
           </div>
           <div className="privacy-card-body">
             <p>
-              You own your data completely. Export portable offline JSON backups, restore them onto any device, or permanently erase all local records.
+              Take complete control of your kitchen records. Export an unencrypted, open-standard JSON snapshot, import a previous backup, or cleanly erase all stored data from this browser.
             </p>
 
-            <div className="data-management-actions mt-16">
+            <div className="data-management-actions-grid mt-16">
               <div className="action-tile">
-                <div>
-                  <h4 className="font-semibold text-sm">Export Data Backup</h4>
-                  <p className="tiny text-muted">Download all candidates, confirmed labels, and pantry events as a validated JSON file.</p>
+                <div className="action-tile-info">
+                  <Download className="action-tile-icon text-brand" />
+                  <div>
+                    <strong className="text-sm">Export Data Backup (JSON)</strong>
+                    <p className="tiny text-muted">Download your complete pantry ledger and scanned labels as a standard JSON file.</p>
+                  </div>
                 </div>
-                <button type="button" className="btn-secondary" onClick={handleExportJson}>
-                  <Download className="btn-icon" />
-                  <span>Export JSON</span>
+                <button type="button" className="btn-secondary-sm mt-8" onClick={handleExportJson}>
+                  <Download className="btn-icon-xs" />
+                  Download Backup JSON
                 </button>
               </div>
 
               <div className="action-tile">
-                <div>
-                  <h4 className="font-semibold text-sm">Import Data Backup</h4>
-                  <p className="tiny text-muted">Restore a previously saved FoodCue backup file into this browser.</p>
+                <div className="action-tile-info">
+                  <Upload className="action-tile-icon text-blue" />
+                  <div>
+                    <strong className="text-sm">Import Previous Backup</strong>
+                    <p className="tiny text-muted">Restore pantry items and labels from an existing FoodCue JSON backup.</p>
+                  </div>
                 </div>
-                <label className="btn-secondary file-picker-label">
-                  <Upload className="btn-icon" />
-                  <span>Choose JSON</span>
+                <label className="btn-secondary-sm mt-8 cursor-pointer">
+                  <Upload className="btn-icon-xs" />
+                  <span>Choose JSON File</span>
                   <input
                     type="file"
-                    accept=".json,application/json"
+                    accept=".json"
                     onChange={handleImportJson}
-                    className="sr-only"
+                    className="hidden-file-input"
                   />
                 </label>
               </div>
 
               <div className="action-tile danger-tile">
-                <div>
-                  <h4 className="font-semibold text-sm text-danger">Clear Local Storage</h4>
-                  <p className="tiny text-muted">Permanently wipes all IndexedDB tables and preferences from this device.</p>
+                <div className="action-tile-info">
+                  <Trash2 className="action-tile-icon text-danger" />
+                  <div>
+                    <strong className="text-sm text-danger">Reset Local Storage</strong>
+                    <p className="tiny text-muted">Permanently wipes all IndexedDB tables, candidates, confirmed labels, and local settings from this browser.</p>
+                  </div>
                 </div>
                 {confirmClear ? (
-                  <div className="confirm-btn-group">
-                    <button type="button" className="btn-danger-confirm" onClick={handleClearData}>
-                      Confirm Erase
-                    </button>
-                    <button type="button" className="btn-cancel" onClick={() => setConfirmClear(false)}>
-                      Cancel
-                    </button>
+                  <div className="confirm-delete-box mt-8">
+                    <p className="tiny text-danger font-semibold mb-4">Are you completely sure? This action cannot be undone.</p>
+                    <div className="btn-group-sm">
+                      <button type="button" className="btn-danger-sm" onClick={handleClearData}>
+                        Confirm Reset
+                      </button>
+                      <button type="button" className="btn-ghost-sm" onClick={() => setConfirmClear(false)}>
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <button type="button" className="btn-danger-outline" onClick={() => setConfirmClear(true)}>
-                    <Trash2 className="btn-icon" />
-                    <span>Clear All Data</span>
+                  <button type="button" className="btn-danger-sm mt-8" onClick={() => setConfirmClear(true)}>
+                    <Trash2 className="btn-icon-xs" />
+                    Wipe Local Data
                   </button>
                 )}
               </div>
@@ -581,45 +512,50 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
           </div>
         </section>
 
-        {/* Section 8: Contact and Developer Information */}
-        <section className="privacy-card full-width-card" aria-labelledby="sec-8-title">
+        {/* Section 8: Developer & Contact Information */}
+        <section className="privacy-card developer-card" aria-labelledby="sec-8-title">
           <div className="privacy-card-header">
-            <div className="card-icon-pill bg-brand-light">
-              <Code2 className="card-icon text-brand" />
+            <div className="card-icon-pill bg-gray-light">
+              <Code2 className="card-icon text-gray-800" />
             </div>
             <div>
               <span className="section-number">Section 8</span>
-              <h2 id="sec-8-title" className="section-heading">Contact & Project Information</h2>
+              <h2 id="sec-8-title" className="section-heading">Developer Information & Attributions</h2>
             </div>
           </div>
           <div className="privacy-card-body">
-            <div className="developer-contact-box">
-              <div className="dev-meta">
-                <span className="text-xs uppercase text-muted font-bold tracking-wider">Lead Software Architect & Developer</span>
-                <h3 className="dev-name font-bold text-lg text-brand-dark">Parth Ahuja</h3>
-                <p className="text-sm text-muted mt-4">
-                  Built to empower Indian households with transparent packaged food intelligence, allergen safety awareness, and autonomous kitchen management.
+            <div className="developer-profile-box">
+              <div className="dev-avatar-initials">PA</div>
+              <div className="dev-info-content">
+                <h3 className="dev-name">Parth Ahuja</h3>
+                <p className="dev-role">Creator, Lead Architect & Full-Stack Engineer of FoodCue</p>
+                <p className="text-sm text-muted mt-8">
+                  FoodCue is developed with a strict commitment to digital privacy, open standards, and food safety transparency. If you have questions about our data practices or wish to request full account and cloud data deletion, please reach out directly:
                 </p>
-              </div>
-
-              <div className="project-specs-meta">
-                <div className="spec-badge">
-                  <span className="spec-label">Parent Spec</span>
-                  <span className="spec-val">FoodCue v13.5</span>
-                </div>
-                <div className="spec-badge">
-                  <span className="spec-label">Security Baseline</span>
-                  <span className="spec-val">Security & Privacy v1.0</span>
-                </div>
-                <div className="spec-badge">
-                  <span className="spec-label">Regulatory Authority</span>
-                  <span className="spec-val">FSSAI Labelling Amdt 6</span>
+                <div className="dev-contact-row mt-12">
+                  <a href="mailto:parthahuja2002@gmail.com" className="dev-contact-chip">
+                    parthahuja2002@gmail.com
+                  </a>
+                  <a href="https://github.com/parth022002/FoodCue" target="_blank" rel="noopener noreferrer" className="dev-contact-chip">
+                    GitHub: parth022002/FoodCue
+                  </a>
                 </div>
               </div>
             </div>
           </div>
         </section>
       </div>
+
+      {/* Migration Wizard Modal */}
+      <MigrationWizard
+        isOpen={showMigrationWizard}
+        onClose={() => setShowMigrationWizard(false)}
+        onComplete={() => {
+          setShowMigrationWizard(false);
+          setMessage("Multi-device cloud synchronization is now active!");
+          loadLocalStats();
+        }}
+      />
     </div>
   );
 }
