@@ -47,8 +47,22 @@ import {
   ShieldCheck,
   AlertTriangle,
   FileText,
-  X
+  X,
+  Globe,
+  ExternalLink
 } from "lucide-react";
+import {
+  OpenFoodFactsClient,
+  mapToOpenFoodFactsCandidate,
+  mapToProductCandidate,
+  mapToComparisonProduct,
+  ProductNotFoundError,
+  RateLimitError,
+  TimeoutError,
+  NetworkError,
+  GtinValidationError,
+  type OpenFoodFactsProductCandidate
+} from "../../integrations/openfoodfacts";
 
 export function SmartScan({
   initialGtin,
@@ -108,6 +122,12 @@ export function SmartScan({
   const [pantryQty, setPantryQty] = useState("1");
   const [pantryLocation, setPantryLocation] = useState<"Pantry" | "Fridge" | "Freezer">("Pantry");
   const [pantryNotice, setPantryNotice] = useState("");
+
+  // OpenFoodFacts Fallback state
+  const [isOpenFoodFactsLoading, setIsOpenFoodFactsLoading] = useState(false);
+  const [openFoodFactsError, setOpenFoodFactsError] = useState<string | null>(null);
+  const [openFoodFactsCandidate, setOpenFoodFactsCandidate] = useState<OpenFoodFactsProductCandidate | null>(null);
+  const [openFoodFactsClient] = useState(() => new OpenFoodFactsClient());
 
   useEffect(() => {
     if (initialGtin) {
@@ -352,6 +372,87 @@ export function SmartScan({
     setCandidate(cand);
   }
 
+  // OpenFoodFacts External GTIN Fallback
+  async function handleOpenFoodFactsLookup() {
+    const rawGtin = candidate?.identifier || normaliseGtin(rawInput);
+    if (!rawGtin) {
+      setOpenFoodFactsError("A valid 8, 12, 13, or 14-digit GTIN is required to query OpenFoodFacts.");
+      return;
+    }
+
+    setIsOpenFoodFactsLoading(true);
+    setOpenFoodFactsError(null);
+
+    try {
+      const rawResult = await openFoodFactsClient.fetchProductByGtin(rawGtin);
+      const offCandidate = mapToOpenFoodFactsCandidate(rawResult);
+      const comparisonProduct = mapToComparisonProduct(offCandidate);
+      const productCandidate = mapToProductCandidate(offCandidate);
+
+      setOpenFoodFactsCandidate(offCandidate);
+      setCandidate(productCandidate);
+
+      const offObs: Observation = {
+        observationId: `obs-off-${Date.now()}`,
+        source: "barcode",
+        timestamp: new Date().toISOString(),
+        rawPayload: `OpenFoodFacts GTIN ${offCandidate.gtin}: ${offCandidate.productName}`,
+        confidence: 0.85,
+        detectorInfo: { name: "OpenFoodFacts-API-v2", version: "v2" },
+        parsedFields: {
+          gtin: offCandidate.gtin,
+          brand: offCandidate.brand,
+          productName: offCandidate.productName,
+          packSize: offCandidate.packSize,
+          ingredients: offCandidate.ingredientsText
+            ? offCandidate.ingredientsText.split(",").map((s) => s.trim())
+            : undefined,
+          allergens: offCandidate.allergensDeclared,
+        },
+        warnings: ["External OpenFoodFacts metadata — physical pack verification strictly required"],
+      };
+
+      const updatedObs = [...observations, offObs];
+      setObservations(updatedObs);
+      const resolver = new EvidenceResolver(updatedObs);
+      const resolved = resolver.resolve();
+      setEvidenceState(resolved);
+
+      const ranked = rankCandidates(resolved, [comparisonProduct]);
+      setRankedCandidates(ranked);
+      const topCandidate = ranked[0] || null;
+      setSelectedCandidate(topCandidate);
+      setMatchedProduct(comparisonProduct);
+      if (topCandidate?.candidate) {
+        setPhysicalIdentity(`${topCandidate.candidate.brand} ${topCandidate.candidate.productName}`);
+      }
+    } catch (err) {
+      if (err instanceof ProductNotFoundError) {
+        setOpenFoodFactsError(
+          "Product not found in OpenFoodFacts database. You can still confirm product details from the physical pack manually."
+        );
+      } else if (err instanceof RateLimitError) {
+        setOpenFoodFactsError(
+          "OpenFoodFacts rate limit reached. Please wait a few moments before trying again."
+        );
+      } else if (err instanceof TimeoutError) {
+        setOpenFoodFactsError(
+          "Request to OpenFoodFacts timed out. Check your connection or continue with manual pack verification."
+        );
+      } else if (err instanceof NetworkError) {
+        setOpenFoodFactsError(
+          "Network error contacting OpenFoodFacts. Verify internet connection or continue offline."
+        );
+      } else if (err instanceof GtinValidationError) {
+        setOpenFoodFactsError(`GTIN validation error: ${err.message}`);
+      } else {
+        setOpenFoodFactsError(err instanceof Error ? err.message : "Failed to query OpenFoodFacts.");
+      }
+    } finally {
+      setIsOpenFoodFactsLoading(false);
+    }
+  }
+
   // Multi-panel OCR Ingestion
   async function handleOcrPanelSubmit(panelId: string) {
     if (!panelDraftText.trim()) return;
@@ -494,6 +595,9 @@ export function SmartScan({
     setRankedCandidates([]);
     setSelectedCandidate(null);
     setUserHasCheckedPack(false);
+    setIsOpenFoodFactsLoading(false);
+    setOpenFoodFactsError(null);
+    setOpenFoodFactsCandidate(null);
   }
 
   return (
@@ -666,6 +770,137 @@ export function SmartScan({
         </div>
       )}
 
+      {/* Step 2A: No Local Catalogue Match — Offer OpenFoodFacts Fallback & Manual Option */}
+      {candidate && !confirmedLabel && !selectedCandidate && (
+        <div className="candidate-resolution-section mt-24">
+          <div className="comparison-card" style={{ borderLeft: "4px solid #f59e0b" }}>
+            <div className="card-top-row">
+              <span className="status-tag warning">
+                No Local Match
+              </span>
+              <span className="tiny text-muted">
+                GTIN: {candidate.identifier || rawInput}
+              </span>
+            </div>
+
+            <h3 className="candidate-title">No Match in Local Verified Indian Catalogue</h3>
+            <p className="tiny text-muted mt-8">
+              The barcode <strong>{candidate.identifier || rawInput}</strong> was observed, but is not present in FoodCue&apos;s pre-verified Indian packaged food catalogue.
+            </p>
+
+            {/* External OpenFoodFacts Fallback Card */}
+            <div className="external-lookup-card mt-16" style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                <Globe className="text-brand-green" size={20} />
+                <strong>OpenFoodFacts Global Metadata Fallback (Optional)</strong>
+              </div>
+
+              <p className="tiny text-muted" style={{ lineHeight: "1.5" }}>
+                You can optionally query OpenFoodFacts (world.openfoodfacts.org) to retrieve public packaging metadata (brand, product name, ingredients list, and declared allergens).
+              </p>
+
+              {/* Explicit Privacy Guarantee Callout */}
+              <div className="privacy-callout mt-12 mb-16" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "10px 12px", display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                <ShieldCheck size={18} className="text-brand-green" style={{ flexShrink: 0, marginTop: "2px" }} />
+                <div className="tiny" style={{ color: "#166534" }}>
+                  <strong>Privacy Guarantee:</strong> Only the barcode number (<code>{candidate.identifier || normaliseGtin(rawInput)}</code>) is transmitted over encrypted HTTPS. Zero personal data, cookies, authentication tokens, photos, or pantry items are ever transmitted. The response remains strictly in your local browser session and is never persisted to the cloud without explicit consent.
+                </div>
+              </div>
+
+              {openFoodFactsError && (
+                <div className="alert-banner alert-danger mb-12" role="alert" style={{ fontSize: "13px" }}>
+                  <AlertTriangle size={16} />
+                  <span>{openFoodFactsError}</span>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={handleOpenFoodFactsLookup}
+                  disabled={isOpenFoodFactsLoading || !(candidate.identifier || normaliseGtin(rawInput))}
+                >
+                  {isOpenFoodFactsLoading ? (
+                    <>
+                      <RefreshCw className="spin btn-icon" size={16} /> Querying OpenFoodFacts...
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="btn-icon" size={16} /> Search OpenFoodFacts
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    const manualComp: VerifiedFoodProduct = {
+                      id: `manual-${Date.now()}`,
+                      gtin: candidate.identifier || normaliseGtin(rawInput) || "MANUAL",
+                      brand: "Packaged Product",
+                      productName: rawInput || "Manual Entry",
+                      variant: "Standard Pack",
+                      category: "Staples",
+                      packSize: "Standard Pack",
+                      fssaiLicence: "Pending Audit",
+                      ingredientsText: "",
+                      parsedIngredients: [],
+                      allergensDeclared: [],
+                      allergensMayContain: [],
+                      nutritionPer100g: {
+                        energyKcal: 0,
+                        proteinG: 0,
+                        carbohydratesG: 0,
+                        totalSugarsG: 0,
+                        addedSugarsG: 0,
+                        totalFatG: 0,
+                        saturatedFatG: 0,
+                        transFatG: 0,
+                        sodiumMg: 0,
+                      },
+                      manufacturerClaims: [],
+                      sourceReference: "Manual Pack Entry",
+                      lastVerifiedDate: new Date().toISOString().split("T")[0]!,
+                    };
+                    const manualRanked: RankedCandidate = {
+                      candidate: manualComp,
+                      score: 0.5,
+                      similarityScore: 0.5,
+                      evidenceCoverage: 0.5,
+                      fieldBreakdowns: [
+                        { field: "brand", weight: 0.30, matched: false, candidateValue: manualComp.brand },
+                        { field: "productName", weight: 0.25, matched: true, candidateValue: manualComp.productName },
+                        { field: "packSize", weight: 0.15, matched: false, candidateValue: manualComp.packSize },
+                        { field: "fssaiLicense", weight: 0.10, matched: false },
+                        { field: "manufacturerReference", weight: 0.05, matched: false }
+                      ],
+                      isBlockedByConflict: false,
+                      hardMismatchReasons: []
+                    };
+                    setSelectedCandidate(manualRanked);
+                    setRankedCandidates([manualRanked]);
+                    setMatchedProduct(manualComp);
+                    setPhysicalIdentity(rawInput || "Packaged Product");
+                  }}
+                >
+                  Enter Pack Details Manually
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleResetAll}
+                >
+                  Cancel / Scan Another
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Step 2: Candidate Resolution & Side-by-Side Review */}
       {candidate && !confirmedLabel && selectedCandidate && (
         <div className="candidate-resolution-section mt-24">
@@ -713,6 +948,32 @@ export function SmartScan({
                 Ranking Score Q: {selectedCandidate.score.toFixed(2)} (S: {selectedCandidate.similarityScore.toFixed(2)}, E: {selectedCandidate.evidenceCoverage.toFixed(2)})
               </span>
             </div>
+
+            {/* OpenFoodFacts Attribution Banner */}
+            {openFoodFactsCandidate && (
+              <div className="off-candidate-badge-banner mb-16" style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "12px", marginTop: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Globe size={16} className="text-brand-green" />
+                    <span className="badge-match warning" style={{ background: "#fef3c7", color: "#92400e", fontWeight: "bold" }}>
+                      External OpenFoodFacts Metadata (Unverified)
+                    </span>
+                  </div>
+                  <a
+                    href={`https://world.openfoodfacts.org/product/${openFoodFactsCandidate.gtin}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tiny"
+                    style={{ color: "#2563eb", display: "inline-flex", alignItems: "center", gap: "4px", textDecoration: "none" }}
+                  >
+                    View on OpenFoodFacts <ExternalLink size={12} />
+                  </a>
+                </div>
+                <p className="tiny text-muted mt-8" style={{ margin: "6px 0 0 0", color: "#78350f" }}>
+                  Source: OpenFoodFacts (ODbL). This metadata is community-sourced and has <strong>not</strong> been verified by FoodCue. You must physically inspect your package before confirming.
+                </p>
+              </div>
+            )}
 
             <h3 className="candidate-title">{selectedCandidate.candidate.brand} — {selectedCandidate.candidate.productName}</h3>
             <p className="tiny text-muted">
