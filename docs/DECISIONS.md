@@ -35,6 +35,10 @@ The following baseline decisions were formally established in Master Specificati
 | **D-016** | 2026-11-16 | Master Specification v13.5 and Validation Workbook v13.5 are active control pair | Class 1 (Fundamental) | Version reconciliation across all project materials | Founder | All baseline items | **Accepted** |
 | **D-017** | 2026-11-16 | Dual-Storage architecture with Neon Serverless Postgres for optional cloud sync | Class 1 (Fundamental) | Local-first IndexedDB remains primary; Neon HTTP pooler enables multi-device backup | Founder | Database & Cloud | **Accepted** |
 | **D-018** | 2026-11-16 | Deploy to Vercel ONLY for static PWA edge hosting; reject Render | Class 2 (Scope) | Avoid Render 50s cold-start spin-down on mobile; Vercel provides native SPA rewrites | Founder | Hosting & DevOps | **Accepted** |
+| **D-019** | 2026-11-17 | Cryptographic Svix Webhook Verification via Native Node.js Crypto | Class 1 (Fundamental) | Eliminate third-party supply chain bloat; constant-time HMAC SHA-256 with 300s replay window | Founder | Security v1.0 §4 | **Accepted** |
+| **D-020** | 2026-11-17 | IndexedDB Schema v3 with Persistent Offline Mutation Queue (`syncQueue`) | Class 1 (Fundamental) | Guarantees zero mutation loss across browser reloads and network outages | Founder | Master Spec §12 | **Accepted** |
+| **D-021** | 2026-11-17 | Hybrid Deterministic Conflict Resolution with Safety-First Set Union | Class 1 (Fundamental) | Append-only event ordering for pantry stock; mathematical set union for allergen avoid-lists | Founder | Master Spec §12.5 | **Accepted** |
+| **D-022** | 2026-11-17 | Multi-Device Fleet Heartbeat & Server-Enforced Remote Session Revocation | Class 2 (Scope) | Allow users to revoke compromised devices directly from Profile; rejected at API boundary | Founder | Security v1.0 §8 | **Accepted** |
 
 ---
 

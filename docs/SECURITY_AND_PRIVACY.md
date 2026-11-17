@@ -5,8 +5,8 @@
 ========================================================================================
 PROJECT:               FoodCue (Working Brand; Formerly SafeWise AI)
 DOCUMENT TITLE:        Security, Privacy and Safety Requirements & Controls
-DOCUMENT VERSION:      v2.0 (Postgres Cloud Ready & Production Frontend Complete)
-DATE:                  16 November 2026
+DOCUMENT VERSION:      v3.0 (Phase 3 Complete: Multi-Tenant Cloud Security & Webhook Cryptography)
+DATE:                  17 November 2026
 PARENT SPECIFICATION:  FoodCue Master Specification v13.5 (Final Controlled Baseline)
 PRODUCT SPECIFICATION: FoodCue Product Development Requirements Document (PRD) v1.3
 SECURITY BASELINE:     FoodCue Security, Privacy and Safety Requirements v1.0
@@ -65,10 +65,21 @@ Permissions-Policy: camera=(self), geolocation=(), microphone=()
 Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.neon.tech https://world.openfoodfacts.org; img-src 'self' data: blob: https:; worker-src 'self' blob:;
 ```
 
+### 2.7 Svix Webhook Verification & Replay Protection
+- **Cryptographic Signature Verification:** `POST /api/webhooks/clerk` validates incoming webhook payloads using native Node.js HMAC SHA-256 over raw request bytes.
+- **Fail-Closed Guardrail:** Returns `HTTP 503` if `CLERK_WEBHOOK_SIGNING_SECRET` is unset, refusing to process unauthenticated requests.
+- **Timestamp Replay Window:** Rejects signatures whose timestamp diverges by more than 300 seconds from server clock.
+- **Idempotency Ledger:** Table `foodcue_webhook_events` logs processed `svix-id` tokens; duplicate delivery returns `HTTP 200 { deduplicated: true }`.
+
+### 2.8 Multi-Tenant User Isolation & Session Revocation
+- **Server-Derived Identity:** All cloud sync endpoints derive user context exclusively from verified Clerk JWT Bearer tokens. Never trusts client-supplied query parameters or body fields as proof of identity.
+- **Horizontal Access Control:** Every cloud SQL read and write enforces `WHERE clerk_user_id = $1`. It is architecturally impossible for User A to observe or mutate User B's inventory.
+- **Remote Device Revocation:** Users can view registered client devices and revoke access. Revoked devices are denied entry with `HTTP 403 DEVICE_REVOKED`.
+
 ---
 
 ```text
 ========================================================================================
-END OF FOODCUE SECURITY, PRIVACY AND SAFETY CONTROLS (v2.0)
+END OF FOODCUE SECURITY, PRIVACY AND SAFETY CONTROLS (v3.0)
 ========================================================================================
 ```

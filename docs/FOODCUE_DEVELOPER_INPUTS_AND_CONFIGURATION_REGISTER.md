@@ -245,9 +245,39 @@ erDiagram
 - Tamper-evident privacy and security log tracking data export, cloud sync, and wipe events.
 - Columns: `audit_id` (PK), `user_id`, `action`, `resource_type`, `resource_id`, `details` (JSONB), `ip_hash`, `created_at`.
 
+### Table 11: `foodcue_schema_migrations`
+- Tracks all version-controlled SQL migration scripts applied to Neon PostgreSQL.
+- Columns: `migration_name` (PK), `applied_at` (TIMESTAMPTZ), `checksum` (SHA-256).
+
+### Table 12: `foodcue_webhook_events`
+- Idempotency ledger for incoming Clerk webhooks (`POST /api/webhooks/clerk`).
+- Columns: `event_id` (PK), `event_type`, `status` (received/processed/failed/duplicate), `payload` (JSONB), `error` (TEXT), `received_at` (TIMESTAMPTZ).
+
+### Table 13: `sync_devices`
+- Tracks registered multi-device sessions for each authenticated user.
+- Columns: `device_id` (UUID PK), `clerk_user_id` (TEXT), `device_name` (TEXT), `client_version` (TEXT), `user_agent` (TEXT), `last_sync_at` (TIMESTAMPTZ), `is_revoked` (BOOLEAN), `created_at` (TIMESTAMPTZ).
+
+### Table 14: `sync_operations`
+- Append-only delta synchronization operation log for cross-device convergence.
+- Columns: `operation_id` (UUID PK), `clerk_user_id` (TEXT), `device_id` (UUID FK), `entity_type` (VARCHAR), `entity_id` (VARCHAR), `operation_type` (VARCHAR), `payload` (JSONB), `client_timestamp` (TIMESTAMPTZ), `server_timestamp` (TIMESTAMPTZ), `idempotency_key` (TEXT UNIQUE).
+
 ---
 
-# Section E: Vercel Deployment Configuration (`vercel.json`)
+# Section E: Serverless Cloud API Routes
+
+| Endpoint | Method | Authentication | Purpose | Implementation File |
+|---|---|---|---|---|
+| `/api/health` | `GET` | Public | Neon database connection health check & latency | `api/health.ts` |
+| `/api/me` | `GET`, `PATCH` | Clerk Bearer Token | User profile derivation and preference updates | `api/me.ts` |
+| `/api/webhooks/clerk` | `POST` | Svix HMAC SHA-256 | Cryptographic Clerk user lifecycle event ingestion | `api/webhooks/clerk.ts` |
+| `/api/sync/push` | `POST` | Clerk Bearer Token | Ingests queued mutation batch from client device | `api/sync/push.ts` |
+| `/api/sync/pull` | `GET` | Clerk Bearer Token | Returns delta operations since cursor timestamp | `api/sync/pull.ts` |
+| `/api/sync/migrate` | `POST` | Clerk Bearer Token | Ingests initial local IndexedDB snapshot | `api/sync/migrate.ts` |
+| `/api/devices` | `GET`, `POST`, `DELETE` | Clerk Bearer Token | Device fleet listing, heartbeat registration & revocation | `api/devices/index.ts` |
+
+---
+
+# Section F: Vercel Deployment Configuration (`vercel.json`)
 
 The following `vercel.json` is deployed in the root directory to ensure seamless SPA routing, cache optimization, and security headers:
 
