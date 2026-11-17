@@ -38,6 +38,15 @@ export function App() {
   const [selectedGtinForScan, setSelectedGtinForScan] = useState<string>("");
   const [calmModeActive, setCalmModeActive] = useState<boolean>(false);
 
+  useEffect(() => {
+    // Seed verified offline FMCG catalog in background without blocking UI
+    import("../domain/services/fmcgCatalogManager").then(({ fmcgCatalog }) => {
+      fmcgCatalog.seedCatalogIfRequired().catch(() => {
+        // Fallback silently remains active
+      });
+    });
+  }, []);
+
   const hasClerkKey = Boolean(
     import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
     import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY

@@ -28,7 +28,7 @@ export interface VerifiedFoodProduct {
   lastVerifiedDate: string;
 }
 
-export const VERIFIED_INDIAN_CATALOG: VerifiedFoodProduct[] = [
+const INITIAL_STARTER_CATALOG: VerifiedFoodProduct[] = [
   {
     id: "fc-tata-salt-1kg",
     gtin: "8901058852738",
@@ -301,6 +301,15 @@ export const VERIFIED_INDIAN_CATALOG: VerifiedFoodProduct[] = [
     sourceReference: "Marico Ltd product packaging verification",
     lastVerifiedDate: "2026-11-16"
   }
+];
+
+import { FMCG_500_CATALOG } from "./fmcgCatalogData";
+
+// Merge original seed items with 500 FMCG products deduplicated by GTIN
+const gtinSet = new Set(INITIAL_STARTER_CATALOG.map((p) => p.gtin));
+export const VERIFIED_INDIAN_CATALOG: VerifiedFoodProduct[] = [
+  ...INITIAL_STARTER_CATALOG,
+  ...FMCG_500_CATALOG.filter((p) => !gtinSet.has(p.gtin))
 ];
 
 export function findProductByGtin(gtin: string): VerifiedFoodProduct | undefined {

@@ -8,7 +8,7 @@ import type { PantryEvent } from "../../domain/entities/pantry";
 import type { ConfirmedLabel, ProductCandidate } from "../../domain/entities/food";
 
 export const DB_NAME = "foodcue-local";
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 export const STORES = [
   "candidates",
@@ -18,7 +18,8 @@ export const STORES = [
   "settings",
   "metadata",
   "syncQueue",
-  "syncState"
+  "syncState",
+  "verifiedCatalog"
 ] as const;
 
 export type StoreName = typeof STORES[number];
@@ -138,6 +139,16 @@ export function openDatabase(): Promise<IDBDatabase> {
 
         if (!db.objectStoreNames.contains("syncState")) {
           db.createObjectStore("syncState", { keyPath: "key" });
+        }
+      }
+
+      // Migration v3 -> v4: Add verified offline FMCG barcode catalogue store and indexes
+      if (oldVersion < 4) {
+        if (!db.objectStoreNames.contains("verifiedCatalog")) {
+          const catalogStore = db.createObjectStore("verifiedCatalog", { keyPath: "gtin" });
+          catalogStore.createIndex("by_brand", "brand", { unique: false });
+          catalogStore.createIndex("by_category", "category", { unique: false });
+          catalogStore.createIndex("by_name", "productName", { unique: false });
         }
       }
     };

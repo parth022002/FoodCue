@@ -22,7 +22,7 @@ describe("FoodCue IndexedDB Local Storage Engine (S1)", () => {
   it("initializes with all required stores and verifies health", async () => {
     const health = await checkDatabaseHealth();
     expect(health.healthy).toBe(true);
-    expect(health.version).toBe(3);
+    expect(health.version).toBe(4);
     for (const store of STORES) {
       expect(health.stores[store]).toBe(0);
     }
@@ -97,7 +97,7 @@ describe("FoodCue IndexedDB Local Storage Engine (S1)", () => {
 
     const pkg = await exportDataPackage();
     expect(pkg.format).toBe("FoodCueBackup");
-    expect(pkg.schemaVersion).toBe(3);
+    expect(pkg.schemaVersion).toBe(4);
     expect(pkg.metadata.totalPantryEvents).toBe(1);
     expect(pkg.data.pantryEvents[0]?.itemId).toBe("tea");
   });
