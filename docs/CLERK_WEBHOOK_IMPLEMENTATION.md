@@ -183,3 +183,45 @@ Ran live cryptographic test script `scripts/verify_live_webhook.ts` using the re
 
 🎉 ALL LIVE VERIFICATION CHECKS PASSED!
 ```
+
+---
+
+## 7. Production HTTPS Endpoint Live Verification
+
+Executed real HTTPS delivery directly to the production domain `https://food-cue.vercel.app/api/webhooks/clerk` with cryptographic Svix HMAC signature header verification:
+
+```text
+1. Sending HTTPS POST to https://food-cue.vercel.app/api/webhooks/clerk
+   User ID: user_live_prod_1794903541783
+   Message ID: msg_live_prod_1794903541784
+   HTTP Status: 200 OK
+   Response Body: {
+     received: true,
+     event: 'user.created',
+     userId: 'user_live_prod_1794903541783',
+     eventId: 'msg_live_prod_1794903541784'
+   }
+
+2. Verifying user in live Neon PostgreSQL...
+   Queried row in Neon: [
+     {
+       user_id: 'user_live_prod_1794903541783',
+       clerk_user_id: 'user_live_prod_1794903541783',
+       email: 'live_prod_1794903541783@foodcue.local',
+       display_name: 'Production Verified User',
+       created_at: 2026-11-17T08:19:02.787Z
+     }
+   ]
+   ✅ User record created in Neon!
+
+3. Testing Idempotent Replay on Production URL...
+   Duplicate Status: 200 OK
+   Duplicate Body: {
+     received: true,
+     deduplicated: true,
+     eventId: 'msg_live_prod_1794903541784'
+   }
+   ✅ Replay safely deduplicated!
+
+🎉 PRODUCTION LIVE WEBHOOK VERIFICATION SUCCEEDED!
+```
