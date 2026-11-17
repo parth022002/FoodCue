@@ -1,6 +1,12 @@
 import { authenticateRequest } from "../../src/server/auth/authorization";
 import { syncRepository } from "../../src/server/database/repositories/sync.repository";
-import { jsonResponse, errorResponse, parseRequest } from "../../src/server/utils/response";
+import {
+  sendResponse,
+  errorResponse,
+  parseRequest,
+  type UniversalServerRequest,
+  type UniversalServerResponse
+} from "../../src/server/utils/response";
 
 export const config = {
   runtime: "nodejs"
@@ -13,11 +19,14 @@ export const config = {
  * Guarantees that local items (pantry events, confirmed labels, shopping items)
  * are safely persisted under the user's clerk_user_id in Neon PostgreSQL.
  */
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: UniversalServerRequest,
+  res?: UniversalServerResponse
+): Promise<Response> {
   const { headers, method, json } = await parseRequest(req);
 
   if (method !== "POST") {
-    return jsonResponse({ error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
   }
 
   try {
@@ -30,12 +39,13 @@ export default async function handler(req: Request): Promise<Response> {
     }>();
 
     if (!snapshot) {
-      return jsonResponse({ error: "Empty migration snapshot.", code: "INVALID_PAYLOAD" }, 400);
+      return sendResponse(res, { error: "Empty migration snapshot.", code: "INVALID_PAYLOAD" }, 400);
     }
 
     const counts = await syncRepository.migrateSnapshot(userContext.clerkUserId, snapshot);
 
-    return jsonResponse(
+    return sendResponse(
+      res,
       {
         migrated: true,
         counts,
@@ -44,6 +54,6 @@ export default async function handler(req: Request): Promise<Response> {
       200
     );
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, res);
   }
 }

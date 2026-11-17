@@ -1,35 +1,58 @@
-import { jsonResponse, parseRequest } from "../../src/server/utils/response";
+import {
+  sendResponse,
+  parseRequest,
+  type UniversalServerRequest,
+  type UniversalServerResponse
+} from "../../src/server/utils/response";
 import { userRepository } from "../../src/server/database/repositories/user.repository";
 import { webhookRepository } from "../../src/server/database/repositories/webhook.repository";
 import { verifySvixSignature } from "../../src/server/auth/svixVerification";
 
+/**
+ * Crucial for Vercel Serverless Functions:
+ * Disabling bodyParser preserves the exact raw stream so HMAC-SHA256 signature
+ * matches byte-for-byte with Svix/Clerk.
+ */
 export const config = {
-  runtime: "nodejs"
+  api: {
+    bodyParser: false
+  }
 };
 
 /**
  * POST /api/webhooks/clerk
  *
  * Production Clerk webhook endpoint with cryptographic Svix HMAC signature verification
- * and an idempotency ledger to prevent replay attacks.
+ * and an idempotency ledger to prevent replay attacks and duplicate user creation.
+ *
+ * Supports both:
+ *  - Node.js Serverless runtime (@vercel/node with req & res)
+ *  - Standard Web Fetch API (Request => Response)
  *
  * Handles user lifecycle events:
- *   - user.created: Creates or reconciles the FoodCue user profile.
+ *   - user.created: Idempotently creates or reconciles the FoodCue user profile in Neon.
  *   - user.updated: Updates email, display name, and username.
  *   - user.deleted: Sets deleted_at timestamp (soft-delete).
  */
-export default async function handler(req: Request): Promise<Response> {
-  const { headers, method, text } = await parseRequest(req);
+export default async function handler(
+  req: UniversalServerRequest,
+  res?: UniversalServerResponse
+): Promise<Response> {
+  const { method, getHeader, text } = await parseRequest(req);
 
   if (method !== "POST") {
-    return jsonResponse({ error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
   }
 
-  const webhookSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+  const webhookSecret =
+    process.env.CLERK_WEBHOOK_SIGNING_SECRET ||
+    process.env.CLERK_WEBHOOK_SECRET ||
+    process.env.WEBHOOK_SECRET;
 
   // 1. Guardrail: Fail closed if signing secret is not configured
   if (!webhookSecret || webhookSecret.trim() === "" || webhookSecret === "whsec_REPLACE_ME") {
-    return jsonResponse(
+    return sendResponse(
+      res,
       {
         error: "Webhook endpoint is not active. CLERK_WEBHOOK_SIGNING_SECRET is pending configuration in Clerk Dashboard.",
         code: "WEBHOOK_SECRET_PENDING"
@@ -39,22 +62,15 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   // 2. Extract Svix signature headers
-  const getHeader = (name: string): string | null => {
-    if (typeof (headers as Headers).get === "function") {
-      return (headers as Headers).get(name);
-    }
-    const val = (headers as Record<string, string | string[] | undefined>)[name];
-    return Array.isArray(val) ? val[0] ?? null : val ?? null;
-  };
-
   const svixId = getHeader("svix-id");
   const svixTimestamp = getHeader("svix-timestamp");
   const svixSignature = getHeader("svix-signature");
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    return jsonResponse(
+    return sendResponse(
+      res,
       {
-        error: "Missing required Svix webhook verification headers.",
+        error: "Missing required Svix webhook verification headers (svix-id, svix-timestamp, svix-signature).",
         code: "MISSING_SVIX_HEADERS"
       },
       400
@@ -64,15 +80,15 @@ export default async function handler(req: Request): Promise<Response> {
   // 3. Read raw payload text for signature verification
   const rawBody = await text();
   if (!rawBody) {
-    return jsonResponse({ error: "Empty webhook payload.", code: "EMPTY_PAYLOAD" }, 400);
+    return sendResponse(res, { error: "Empty webhook payload.", code: "EMPTY_PAYLOAD" }, 400);
   }
 
-  // 4. Verify cryptographic Svix signature
+  // 4. Verify cryptographic Svix signature (HMAC-SHA256 with 300s replay window)
   try {
     verifySvixSignature(rawBody, { id: svixId, timestamp: svixTimestamp, signature: svixSignature }, webhookSecret);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid webhook signature";
-    return jsonResponse({ error: message, code: "INVALID_SIGNATURE" }, 401);
+    return sendResponse(res, { error: message, code: "INVALID_SIGNATURE" }, 401);
   }
 
   // 5. Parse JSON payload
@@ -91,23 +107,23 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     payload = JSON.parse(rawBody);
   } catch {
-    return jsonResponse({ error: "Malformed JSON payload.", code: "INVALID_JSON" }, 400);
+    return sendResponse(res, { error: "Malformed JSON payload.", code: "INVALID_JSON" }, 400);
   }
 
   if (!payload || !payload.type || !payload.data?.id) {
-    return jsonResponse({ error: "Invalid webhook payload structure.", code: "INVALID_PAYLOAD" }, 400);
+    return sendResponse(res, { error: "Invalid webhook payload structure. type and data.id are required.", code: "INVALID_PAYLOAD" }, 400);
   }
 
   const { type, data } = payload;
   const clerkUserId = data.id;
 
-  // 6. Idempotency Check: Claim event to prevent double-processing or replay attacks
-  const isNew = await webhookRepository.claimEvent(svixId, type, payload as unknown as Record<string, unknown>);
-  if (!isNew) {
-    return jsonResponse({ received: true, deduplicated: true, eventId: svixId }, 200);
+  // 6. Idempotency Check: Claim event in ledger (prevents duplicate processing on retries)
+  const isNewOrRetry = await webhookRepository.claimEvent(svixId, type, payload as unknown as Record<string, unknown>);
+  if (!isNewOrRetry) {
+    return sendResponse(res, { received: true, deduplicated: true, eventId: svixId }, 200);
   }
 
-  // 7. Execute business logic based on event type
+  // 7. Execute user synchronization logic in Neon PostgreSQL
   try {
     const primaryEmail =
       data.email_addresses?.find((e) => e.id === data.primary_email_address_id)?.email_address ??
@@ -138,15 +154,15 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       default:
-        // Acknowledge other events (e.g. session.created, organization.created) without error
+        // Acknowledge other Clerk events (session.created, organization.created, etc.) with 200 OK
         break;
     }
 
     await webhookRepository.markStatus(svixId, "processed");
-    return jsonResponse({ received: true, event: type, userId: clerkUserId, eventId: svixId }, 200);
+    return sendResponse(res, { received: true, event: type, userId: clerkUserId, eventId: svixId }, 200);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Webhook handler failed";
     await webhookRepository.markStatus(svixId, "failed", msg);
-    return jsonResponse({ error: msg, code: "WEBHOOK_PROCESSING_FAILED" }, 500);
+    return sendResponse(res, { error: msg, code: "WEBHOOK_PROCESSING_FAILED" }, 500);
   }
 }

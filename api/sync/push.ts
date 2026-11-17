@@ -1,6 +1,12 @@
 import { authenticateRequest } from "../../src/server/auth/authorization";
 import { syncRepository } from "../../src/server/database/repositories/sync.repository";
-import { jsonResponse, errorResponse, parseRequest } from "../../src/server/utils/response";
+import {
+  sendResponse,
+  errorResponse,
+  parseRequest,
+  type UniversalServerRequest,
+  type UniversalServerResponse
+} from "../../src/server/utils/response";
 
 export const config = {
   runtime: "nodejs"
@@ -16,11 +22,14 @@ export const config = {
  *   3. Operation idempotency via unique idempotency_key.
  *   4. Cloud entity projection under the authenticated clerk_user_id.
  */
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: UniversalServerRequest,
+  res?: UniversalServerResponse
+): Promise<Response> {
   const { headers, method, json } = await parseRequest(req);
 
   if (method !== "POST") {
-    return jsonResponse({ error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
   }
 
   try {
@@ -40,7 +49,8 @@ export default async function handler(req: Request): Promise<Response> {
     }>();
 
     if (!body || !body.deviceId || !Array.isArray(body.operations)) {
-      return jsonResponse(
+      return sendResponse(
+        res,
         { error: "Invalid sync push payload. deviceId and operations array are required.", code: "INVALID_PAYLOAD" },
         400
       );
@@ -49,7 +59,8 @@ export default async function handler(req: Request): Promise<Response> {
     // Check device revocation
     const isRevoked = await syncRepository.isDeviceRevoked(body.deviceId, userContext.clerkUserId);
     if (isRevoked) {
-      return jsonResponse(
+      return sendResponse(
+        res,
         { error: "This device has been revoked. Re-authenticate to resume syncing.", code: "DEVICE_REVOKED" },
         403
       );
@@ -61,7 +72,8 @@ export default async function handler(req: Request): Promise<Response> {
       body.operations
     );
 
-    return jsonResponse(
+    return sendResponse(
+      res,
       {
         success: true,
         processedCount: processed,
@@ -71,6 +83,6 @@ export default async function handler(req: Request): Promise<Response> {
       200
     );
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, res);
   }
 }

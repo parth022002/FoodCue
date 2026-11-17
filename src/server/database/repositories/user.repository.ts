@@ -44,6 +44,7 @@ export class UserRepository {
     const rows = await query<Record<string, unknown>>(
       `
       INSERT INTO foodcue_users (
+        user_id,
         clerk_user_id,
         clerk_id,
         email,
@@ -55,13 +56,15 @@ export class UserRepository {
         updated_at,
         last_active_at
       ) VALUES (
-        $1, $1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        $1::varchar, $1::text, $1::varchar, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
       ON CONFLICT (clerk_user_id) DO UPDATE SET
         email = COALESCE(EXCLUDED.email, foodcue_users.email),
         display_name = COALESCE(EXCLUDED.display_name, foodcue_users.display_name),
         username = COALESCE(EXCLUDED.username, foodcue_users.username),
-        last_active_at = CURRENT_TIMESTAMP
+        updated_at = CURRENT_TIMESTAMP,
+        last_active_at = CURRENT_TIMESTAMP,
+        deleted_at = NULL
       RETURNING *;
     `,
       [

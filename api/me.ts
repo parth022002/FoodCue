@@ -1,6 +1,12 @@
 import { authenticateRequest } from "../src/server/auth/authorization";
 import { userService } from "../src/server/services/user.service";
-import { jsonResponse, errorResponse, parseRequest } from "../src/server/utils/response";
+import {
+  sendResponse,
+  errorResponse,
+  parseRequest,
+  type UniversalServerRequest,
+  type UniversalServerResponse
+} from "../src/server/utils/response";
 
 export const config = {
   runtime: "nodejs"
@@ -13,7 +19,10 @@ export const config = {
  * Identity is derived exclusively from the verified Clerk session Bearer token.
  * Never accepts user ID from query params or body payload as proof of identity.
  */
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: UniversalServerRequest,
+  res?: UniversalServerResponse
+): Promise<Response> {
   const { headers, method, json } = await parseRequest(req);
 
   try {
@@ -23,7 +32,7 @@ export default async function handler(req: Request): Promise<Response> {
     if (method === "GET") {
       // 2. Retrieve or idempotently provision the user record
       const user = await userService.getOrCreateUser(userContext);
-      return jsonResponse(userService.formatPublicProfile(user), 200);
+      return sendResponse(res, userService.formatPublicProfile(user), 200);
     }
 
     if (method === "PATCH") {
@@ -32,11 +41,11 @@ export default async function handler(req: Request): Promise<Response> {
         displayName: body.displayName,
         username: body.username
       });
-      return jsonResponse(userService.formatPublicProfile(updated), 200);
+      return sendResponse(res, userService.formatPublicProfile(updated), 200);
     }
 
-    return jsonResponse({ error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, res);
   }
 }

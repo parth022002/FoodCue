@@ -5,7 +5,7 @@
 MODULE:                Clerk Authentication Webhook Integration
 SPECIFICATION:         FoodCue Master Specification v13.5 §14.3
 SECURITY COMPLIANCE:   FoodCue Security, Privacy and Safety Requirements v1.0 §4.2
-STATUS:                Production Ready & Cryptographically Verified
+STATUS:                Production Ready & Cryptographically Verified (Live Neon Validated)
 ========================================================================================
 ```
 
@@ -71,10 +71,11 @@ CREATE TABLE IF NOT EXISTS foodcue_webhook_events (
 ```
 
 When an event arrives:
-1. An atomic `INSERT INTO foodcue_webhook_events ... ON CONFLICT (event_id) DO NOTHING RETURNING event_id` is executed.
-2. If zero rows return, the event is recognized as a duplicate and immediately responded to with `HTTP 200 OK` (`{ received: true, deduplicated: true }`), preventing infinite retry storms while guaranteeing single-execution semantics.
-3. On successful execution, the status updates to `processed`.
-4. On failure, the status updates to `failed` with the error reason recorded.
+1. `claimEvent` queries `foodcue_webhook_events` for existing status.
+2. If status is `'processed'`, the event is recognized as a duplicate and immediately responded to with `HTTP 200 OK` (`{ received: true, deduplicated: true }`), preventing infinite retry storms while guaranteeing single-execution semantics.
+3. If the event is new OR previously failed, it is claimed into `received` status and processed.
+4. On successful execution, the status updates to `processed`.
+5. On failure, the status updates to `failed` with the error reason recorded, allowing safe subsequent delivery attempts to re-execute without being falsely dropped.
 
 ---
 
@@ -82,7 +83,7 @@ When an event arrives:
 
 | Event Type | Action Taken | Database Impact |
 |---|---|---|
-| `user.created` | Upsert `foodcue_users` record | Creates user record with `clerk_user_id`, primary email, display name, and username |
+| `user.created` | Upsert `foodcue_users` record | Creates user record with `user_id`, `clerk_user_id`, primary email, display name, and username |
 | `user.updated` | Update `foodcue_users` record | Updates profile fields and sets `updated_at = CURRENT_TIMESTAMP` |
 | `user.deleted` | Soft delete user | Sets `deleted_at = CURRENT_TIMESTAMP`; invalidates future sync requests |
 | Other (`session.*`, `organization.*`) | Acknowledged | Returns `HTTP 200 OK` without error |
@@ -99,7 +100,86 @@ The implementation is verified by:
    - Timestamp replay rejection (> 300s)
    - Missing headers rejection
 2. `test/server/api/endpoints.test.ts`:
-   - Fail-closed guardrail when signing secret is missing (503)
-   - Missing Svix headers rejection (400)
-   - Invalid Svix signature rejection (401)
-   - Successful `user.created` event ingestion (200)
+   - `POST /api/webhooks/clerk`: Fail-closed 503 when secret is unconfigured
+   - `POST /api/webhooks/clerk`: 405 Method Not Allowed on GET/PUT/DELETE
+   - `POST /api/webhooks/clerk`: 400 Bad Request on missing Svix headers
+   - `POST /api/webhooks/clerk`: 401 Unauthorized on invalid HMAC signature
+   - `POST /api/webhooks/clerk`: 400 Bad Request on malformed non-JSON payload
+   - `POST /api/webhooks/clerk`: 400 Bad Request on payload missing `data.id`
+   - `POST /api/webhooks/clerk`: 500 processing failure handled safely without leaking credentials
+   - `POST /api/webhooks/clerk`: Idempotent deduplication of repeated delivery
+   - `POST /api/webhooks/clerk`: Node.js stream mode (`(req, res)` with `bodyParser: false`) execution
+   - `POST /api/webhooks/clerk`: Valid signature processing of `user.created` event
+
+---
+
+## 6. Incident Investigation & Root Cause Resolution
+
+### Symptom
+Clerk Dashboard indicated two failed `user.created` webhook delivery attempts to `https://food-cue.vercel.app/api/webhooks/clerk`.
+
+### Audit Findings & Root Causes Identified
+
+1. **Database Schema Not-Null Constraint Violation (`user_id`):**
+   - *Root Cause:* In `foodcue_users`, column `user_id` is defined as `VARCHAR(64) PRIMARY KEY NOT NULL` with no default value. The previous `userRepository.create()` query omitted `user_id` from the column list, inserting only `clerk_user_id`. PostgreSQL threw `null value in column "user_id" of relation "foodcue_users" violates not-null constraint`, crashing every webhook user insertion.
+   - *Fix:* Explicitly populated `user_id` alongside `clerk_user_id` and `clerk_id` using the verified Clerk user ID.
+
+2. **PostgreSQL Parameter Type Ambiguity:**
+   - *Root Cause:* In the SQL statement, parameter `$1` was simultaneously bound to `user_id` (`varchar`), `clerk_user_id` (`text`), and `clerk_id` (`varchar`). PostgreSQL threw `Database query failed: inconsistent types deduced for parameter $1`.
+   - *Fix:* Added explicit type casting in the `VALUES` clause: `($1::varchar, $1::text, $1::varchar, ...)`.
+
+3. **Vercel Serverless Function Stream Corruption:**
+   - *Root Cause:* By default, `@vercel/node` parses incoming JSON request bodies into JavaScript objects. When `parseRequest` re-serialized `JSON.stringify(nodeReq.body)`, key ordering, whitespace, and formatting diverged from the byte-for-byte payload Clerk originally signed, causing cryptographic Svix signature verification to fail.
+   - *Fix:* Exported `export const config = { api: { bodyParser: false } }` on `/api/webhooks/clerk`, preserving the unconsumed Node readable stream and reading exact raw UTF-8 bytes for HMAC computation.
+
+4. **Vercel Serverless Runtime Response Mismatch (`FUNCTION_INVOCATION_FAILED`):**
+   - *Root Cause:* In `@vercel/node`, functions are invoked as `handler(req, res)`. Returning a Web standard `Response` object without invoking `res.status().json()` caused Vercel's Node bridge to hang or fail with `500 FUNCTION_INVOCATION_FAILED`.
+   - *Fix:* Implemented universal `sendResponse` dispatcher supporting both Node.js `(req, res)` and Web Fetch `Request => Response` across all API endpoints.
+
+5. **Retry Handling in Webhook Idempotency Ledger:**
+   - *Root Cause:* If an event delivery initially failed, the ledger row remained in `'failed'` status. On retry, `claimEvent` treated the record as already existing and skipped re-execution.
+   - *Fix:* Updated `claimEvent` to only deduplicate events whose status is `'processed'`. Events that are new or in `'failed'` status are claimed and permitted to re-execute.
+
+### Live Neon Database Verification Evidence
+
+Ran live cryptographic test script `scripts/verify_live_webhook.ts` using the real `whsec_3FK0OeRhQ7MX/r8gKZ7vppSbCDgln34o` secret and live Neon database:
+
+```text
+1. Delivering live Svix-signed webhook for user: user_live_verify_1794899267147...
+   Message ID: msg_live_delivery_1794899267147
+   Timestamp: 1794899267
+   Signature: v1,HG0P3u51f9TrhwjbS...
+   Response Status: 200
+   Response Body: { received: true, event: 'user.created', userId: 'user_live_verify_1794899267147' }
+
+2. Verifying user record in Neon PostgreSQL...
+   Found user rows in Neon: [
+     {
+       id: 'ff21c62c-c46f-496e-92e5-ec2598415b8c',
+       user_id: 'user_live_verify_1794899267147',
+       clerk_user_id: 'user_live_verify_1794899267147',
+       email: 'webhook_tester_1794899267147@foodcue.local',
+       display_name: 'Live Verification User',
+       username: 'verifier_1794899267147',
+       created_at: '2026-11-17T07:07:47.384Z'
+     }
+   ]
+   ✅ User record correctly verified in Neon!
+
+3. Verifying webhook idempotency ledger in Neon...
+   Found event row: status = 'processed', error = null
+   ✅ Webhook event status is 'processed'!
+
+4. Testing duplicate delivery attempt (Idempotency check)...
+   Response Status: 200
+   Response Body: { received: true, deduplicated: true }
+   User count after duplicate delivery: 1
+   ✅ Idempotency strictly verified! No duplicate users created.
+
+5. Testing user.updated event...
+   Response Status: 200
+   Updated display name in Neon: UpdatedFirst UpdatedLast
+   ✅ user.updated verified in Neon!
+
+🎉 ALL LIVE VERIFICATION CHECKS PASSED!
+```

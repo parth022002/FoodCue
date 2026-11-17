@@ -1,6 +1,12 @@
 import { authenticateRequest } from "../../src/server/auth/authorization";
 import { syncRepository } from "../../src/server/database/repositories/sync.repository";
-import { jsonResponse, errorResponse, parseRequest } from "../../src/server/utils/response";
+import {
+  sendResponse,
+  errorResponse,
+  parseRequest,
+  type UniversalServerRequest,
+  type UniversalServerResponse
+} from "../../src/server/utils/response";
 
 export const config = {
   runtime: "nodejs"
@@ -13,7 +19,10 @@ export const config = {
  * POST: Registers or updates heartbeat for the current client device.
  * DELETE: Revokes a specified device (passed via ?deviceId=UUID).
  */
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: UniversalServerRequest,
+  res?: UniversalServerResponse
+): Promise<Response> {
   const { headers, method, json } = await parseRequest(req);
 
   try {
@@ -21,7 +30,7 @@ export default async function handler(req: Request): Promise<Response> {
 
     if (method === "GET") {
       const devices = await syncRepository.listDevices(userContext.clerkUserId);
-      return jsonResponse({ devices }, 200);
+      return sendResponse(res, { devices }, 200);
     }
 
     if (method === "POST") {
@@ -33,7 +42,7 @@ export default async function handler(req: Request): Promise<Response> {
       }>();
 
       if (!body || !body.deviceId || !body.deviceName) {
-        return jsonResponse({ error: "deviceId and deviceName are required.", code: "INVALID_PAYLOAD" }, 400);
+        return sendResponse(res, { error: "deviceId and deviceName are required.", code: "INVALID_PAYLOAD" }, 400);
       }
 
       const result = await syncRepository.upsertDevice({
@@ -44,28 +53,31 @@ export default async function handler(req: Request): Promise<Response> {
         userAgent: body.userAgent
       });
 
-      return jsonResponse({ registered: true, isRevoked: result.isRevoked }, 200);
+      return sendResponse(res, { registered: true, isRevoked: result.isRevoked }, 200);
     }
 
     if (method === "DELETE") {
-      let deviceId: string | null = null;
-      try {
-        const url = new URL((req as Request).url || "http://localhost");
-        deviceId = url.searchParams.get("deviceId");
-      } catch {
-        deviceId = null;
+      const queryObj = "query" in req && typeof req.query === "object" ? req.query : undefined;
+      let deviceId: string | null = (queryObj?.deviceId as string) ?? null;
+      if (!deviceId && "url" in req && typeof req.url === "string") {
+        try {
+          const url = new URL(req.url, "http://localhost");
+          deviceId = url.searchParams.get("deviceId");
+        } catch {
+          deviceId = null;
+        }
       }
 
       if (!deviceId) {
-        return jsonResponse({ error: "Query parameter deviceId is required.", code: "MISSING_DEVICE_ID" }, 400);
+        return sendResponse(res, { error: "Query parameter deviceId is required.", code: "MISSING_DEVICE_ID" }, 400);
       }
 
       const revoked = await syncRepository.revokeDevice(deviceId, userContext.clerkUserId);
-      return jsonResponse({ revoked, deviceId }, 200);
+      return sendResponse(res, { revoked, deviceId }, 200);
     }
 
-    return jsonResponse({ error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, res);
   }
 }

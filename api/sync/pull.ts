@@ -1,6 +1,12 @@
 import { authenticateRequest } from "../../src/server/auth/authorization";
 import { syncRepository } from "../../src/server/database/repositories/sync.repository";
-import { jsonResponse, errorResponse, parseRequest } from "../../src/server/utils/response";
+import {
+  sendResponse,
+  errorResponse,
+  parseRequest,
+  type UniversalServerRequest,
+  type UniversalServerResponse
+} from "../../src/server/utils/response";
 
 export const config = {
   runtime: "nodejs"
@@ -13,22 +19,28 @@ export const config = {
  * Optional query parameter: ?since=<ISO_TIMESTAMP>
  * Returns operations created after the cursor, ordered chronologically.
  */
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: UniversalServerRequest,
+  res?: UniversalServerResponse
+): Promise<Response> {
   const { headers, method } = await parseRequest(req);
 
   if (method !== "GET") {
-    return jsonResponse({ error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
   }
 
   try {
     const userContext = await authenticateRequest(headers);
 
-    let sinceTimestamp: string | null = null;
-    try {
-      const url = new URL((req as Request).url || "http://localhost");
-      sinceTimestamp = url.searchParams.get("since");
-    } catch {
-      sinceTimestamp = null;
+    const queryObj = "query" in req && typeof req.query === "object" ? req.query : undefined;
+    let sinceTimestamp: string | null = (queryObj?.since as string) ?? null;
+    if (!sinceTimestamp && "url" in req && typeof req.url === "string") {
+      try {
+        const url = new URL(req.url, "http://localhost");
+        sinceTimestamp = url.searchParams.get("since");
+      } catch {
+        sinceTimestamp = null;
+      }
     }
 
     const operations = await syncRepository.pullOperationsSince(
@@ -37,7 +49,8 @@ export default async function handler(req: Request): Promise<Response> {
       100
     );
 
-    return jsonResponse(
+    return sendResponse(
+      res,
       {
         serverTimestamp: new Date().toISOString(),
         operations,
@@ -46,6 +59,6 @@ export default async function handler(req: Request): Promise<Response> {
       200
     );
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, res);
   }
 }

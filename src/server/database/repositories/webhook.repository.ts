@@ -12,22 +12,34 @@ export interface WebhookEventRecord {
 export const webhookRepository = {
   /**
    * Attempts to claim a webhook event for processing.
-   * Returns true if the event is new and successfully claimed;
-   * returns false if the event has already been registered (duplicate/replay).
+   * Returns true if the event is new or previously failed and should be retried;
+   * returns false if the event has already been successfully processed (duplicate/replay).
    */
   async claimEvent(eventId: string, eventType: string, payload: Record<string, unknown>): Promise<boolean> {
     try {
-      const rows = await query<{ event_id: string }>(
+      // 1. Check if the event was already successfully processed
+      const existing = await query<{ status: string }>(
+        `SELECT status FROM foodcue_webhook_events WHERE event_id = $1 LIMIT 1;`,
+        [eventId]
+      );
+      if (existing[0] && existing[0].status === "processed") {
+        return false;
+      }
+
+      // 2. Insert or update to 'received' state
+      await query(
         `
         INSERT INTO foodcue_webhook_events (event_id, event_type, status, payload, received_at)
         VALUES ($1, $2, 'received', $3, CURRENT_TIMESTAMP)
-        ON CONFLICT (event_id) DO NOTHING
-        RETURNING event_id;
+        ON CONFLICT (event_id) DO UPDATE SET
+          status = 'received',
+          error = NULL,
+          received_at = CURRENT_TIMESTAMP;
         `,
         [eventId, eventType, JSON.stringify(payload)]
       );
 
-      return rows.length > 0;
+      return true;
     } catch {
       // If table does not exist yet (before migration 002 is run), allow processing with warning
       return true;
