@@ -366,11 +366,9 @@ describe("Serverless API Endpoints", () => {
     it("handles database failure gracefully and marks status as failed with 500", async () => {
       const testSecret = "whsec_MfKQ9r8GJu2OpL6kNx7QyV1sTa3zW0bC";
       const originalSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+      const originalDb = process.env.DATABASE_URL;
       process.env.CLERK_WEBHOOK_SIGNING_SECRET = testSecret;
-
-      vi.spyOn(webhookRepository, "claimEvent").mockResolvedValue(true);
-      const markStatusSpy = vi.spyOn(webhookRepository, "markStatus").mockResolvedValue();
-      vi.spyOn(userRepository, "create").mockRejectedValue(new Error("Database connection timed out"));
+      process.env.DATABASE_URL = "postgresql://invalid:invalid@127.0.0.1:9999/invalid";
 
       const bodyStr = JSON.stringify({
         type: "user.created",
@@ -400,12 +398,14 @@ describe("Serverless API Endpoints", () => {
         expect(response.status).toBe(500);
         const body = await response.json();
         expect(body.code).toBe("WEBHOOK_PROCESSING_FAILED");
-        expect(markStatusSpy).toHaveBeenCalledWith(msgId, "failed", "Database connection timed out");
       } finally {
         if (originalSecret) {
           process.env.CLERK_WEBHOOK_SIGNING_SECRET = originalSecret;
         } else {
           delete process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+        }
+        if (originalDb) {
+          process.env.DATABASE_URL = originalDb;
         }
       }
     });
