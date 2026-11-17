@@ -1,66 +1,79 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ShoppingBag, Plus, Trash2, Check, Download, Share2, Sparkles } from "lucide-react";
+import { shoppingStorage, type ShoppingItem } from "../../adapters/storage/shoppingStorage";
 
-export interface ShoppingItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  category: string;
-  isBought: boolean;
-}
+export { type ShoppingItem } from "../../adapters/storage/shoppingStorage";
 
 export function ShoppingList() {
-  const [items, setItems] = useState<ShoppingItem[]>([
-    { id: "1", name: "Tata Iodised Salt", quantity: 1, unit: "kg", category: "Staples", isBought: false },
-    { id: "2", name: "Amul Pasteurised Butter", quantity: 2, unit: "packs", category: "Dairy", isBought: false },
-    { id: "3", name: "Whole Wheat Atta", quantity: 5, unit: "kg", category: "Staples", isBought: true },
-    { id: "4", name: "Quaker Rolled Oats", quantity: 1, unit: "pack", category: "Breakfast", isBought: false }
-  ]);
+  const [items, setItems] = useState<ShoppingItem[]>([]);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("pack");
   const [category, setCategory] = useState("Groceries");
   const [shareNotice, setShareNotice] = useState("");
 
-  function addItem(e: React.FormEvent) {
+  useEffect(() => {
+    let mounted = true;
+    shoppingStorage.loadItems().then((loaded) => {
+      if (mounted) {
+        setItems(loaded);
+      }
+    });
+
+    const unsubscribe = shoppingStorage.subscribe((updated) => {
+      if (mounted) {
+        setItems(updated);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const newItem: ShoppingItem = {
-      id: crypto.randomUUID(),
+    await shoppingStorage.addItem({
       name: name.trim(),
       quantity: Number(quantity) || 1,
       unit,
       category,
       isBought: false
-    };
+    });
 
-    setItems((prev) => [newItem, ...prev]);
     setName("");
     setQuantity("1");
   }
 
-  function toggleBought(id: string) {
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, isBought: !item.isBought } : item))
-    );
+  async function toggleBought(id: string) {
+    const item = items.find((i) => i.id === id);
+    if (item) {
+      await shoppingStorage.updateItem(id, { isBought: !item.isBought });
+    }
   }
 
-  function deleteItem(id: string) {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  async function deleteItem(id: string) {
+    await shoppingStorage.deleteItem(id);
   }
 
-  function clearBought() {
-    setItems((prev) => prev.filter((item) => !item.isBought));
+  async function clearBought() {
+    const bought = items.filter((i) => i.isBought);
+    for (const item of bought) {
+      await shoppingStorage.deleteItem(item.id);
+    }
   }
 
-  function handleAddLowStockItems() {
-    const suggestions: ShoppingItem[] = [
-      { id: crypto.randomUUID(), name: "Maggi 2-Minute Noodles", quantity: 4, unit: "packs", category: "Snacks", isBought: false },
-      { id: crypto.randomUUID(), name: "Epigamia Greek Yogurt", quantity: 2, unit: "cups", category: "Dairy", isBought: false }
+  async function handleAddLowStockItems() {
+    const suggestions = [
+      { name: "Maggi 2-Minute Noodles", quantity: 4, unit: "packs", category: "Snacks", isBought: false },
+      { name: "Epigamia Greek Yogurt", quantity: 2, unit: "cups", category: "Dairy", isBought: false }
     ];
-    setItems((prev) => [...suggestions, ...prev]);
+    for (const sug of suggestions) {
+      await shoppingStorage.addItem(sug);
+    }
     setShareNotice("Added 2 depleted pantry staples to your shopping list.");
     setTimeout(() => setShareNotice(""), 3500);
   }

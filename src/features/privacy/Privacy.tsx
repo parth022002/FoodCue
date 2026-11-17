@@ -1,14 +1,19 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   clearFoodCueData,
   getAllRecords,
   putRecord
 } from "../../adapters/storage/database";
+import { shoppingStorage } from "../../adapters/storage/shoppingStorage";
 import type { PantryEvent } from "../../domain/entities/pantry";
 import type { ConfirmedLabel, ProductCandidate } from "../../domain/entities/food";
 import { syncStatus } from "../../sync/state/syncStatus";
+import { syncMetadata } from "../../sync/state/syncMetadata";
 import { syncCoordinator } from "../../sync/engine/syncCoordinator";
 import { MigrationWizard } from "../sync/MigrationWizard";
+import { ConnectedDevicesView } from "../devices/ConnectedDevicesView";
+import { useAuth, useUser } from "@clerk/react";
+import { SyncApiClient } from "../../sync/transport/syncApiClient";
 import {
   Shield,
   Database,
@@ -25,13 +30,21 @@ import {
   HardDrive,
   Info,
   Smartphone,
-  Server
+  Server,
+  CloudOff,
+  ChevronRight
 } from "lucide-react";
 
 export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
+  const { getToken } = useAuth();
+  const { isSignedIn } = useUser();
+
+  const [activeSubView, setActiveSubView] = useState<"overview" | "devices">("overview");
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDisableSync, setConfirmDisableSync] = useState(false);
+  const [confirmDeleteCloud, setConfirmDeleteCloud] = useState(false);
   const [showMigrationWizard, setShowMigrationWizard] = useState(false);
   const [syncState, setSyncState] = useState(syncStatus.getState());
   const [isSyncing, setIsSyncing] = useState(false);
@@ -39,8 +52,10 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
   const [stats, setStats] = useState({
     candidates: 0,
     confirmedLabels: 0,
-    pantryEvents: 0
+    pantryEvents: 0,
+    shoppingItems: 0
   });
+
   const [quota, setQuota] = useState<{ usedMB: number; totalMB: number; percent: number }>({
     usedMB: 0,
     totalMB: 0,
@@ -63,10 +78,12 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
       const c = await getAllRecords<ProductCandidate>("candidates");
       const l = await getAllRecords<ConfirmedLabel>("confirmedLabels");
       const p = await getAllRecords<PantryEvent>("pantryEvents");
+      const s = await shoppingStorage.loadItems();
       setStats({
         candidates: c.length,
         confirmedLabels: l.length,
-        pantryEvents: p.length
+        pantryEvents: p.length,
+        shoppingItems: s.length
       });
     } catch {
       // fallback
@@ -106,10 +123,36 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
     }
   }
 
+  async function handleDisableSync() {
+    try {
+      await syncMetadata.setCloudSyncEnabled(false);
+      syncStatus.updateState({ isCloudEnabled: false });
+      setConfirmDisableSync(false);
+      setMessage("Cloud sync has been paused. Your kitchen is now operating in local-only mode. Existing cloud records remain safe in your account.");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to disable cloud sync.");
+    }
+  }
+
+  async function handleDeleteCloudData() {
+    if (!isSignedIn) return;
+    try {
+      const client = new SyncApiClient(async () => getToken());
+      await client.deleteCloudData();
+      await syncMetadata.setCloudSyncEnabled(false);
+      syncStatus.updateState({ isCloudEnabled: false });
+      setConfirmDeleteCloud(false);
+      setMessage("All cloud data and sync operations have been permanently deleted from Neon PostgreSQL. Local data on this device remains intact.");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to delete cloud data.");
+    }
+  }
+
   async function handleClearData() {
     try {
       await clearFoodCueData();
       localStorage.removeItem("foodcue_profile");
+      localStorage.removeItem("foodcue_shopping_list");
       setConfirmClear(false);
       setMessage("All FoodCue local storage and settings have been wiped cleanly.");
       await loadLocalStats();
@@ -125,12 +168,18 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
       const c = await getAllRecords("candidates");
       const l = await getAllRecords("confirmedLabels");
       const p = await getAllRecords("pantryEvents");
+      const s = await shoppingStorage.loadItems();
       const exportBundle = {
         exportedAt: new Date().toISOString(),
         application: "FoodCue",
         version: "1.0.0",
         schemaVersion: 1,
-        data: { candidates: c, confirmedLabels: l, pantryEvents: p }
+        data: {
+          candidates: c,
+          confirmedLabels: l,
+          pantryEvents: p,
+          shoppingItems: s
+        }
       };
 
       const blob = new Blob([JSON.stringify(exportBundle, null, 2)], {
@@ -167,7 +216,13 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
         }
       }
 
-      setMessage(`Backup restored! Imported ${parsed.data?.pantryEvents?.length || 0} pantry events.`);
+      if (parsed.data?.shoppingItems && Array.isArray(parsed.data.shoppingItems)) {
+        for (const item of parsed.data.shoppingItems) {
+          await shoppingStorage.addItem(item);
+        }
+      }
+
+      setMessage(`Backup restored! Imported records successfully.`);
       await loadLocalStats();
       if (onDataRestored) onDataRestored();
     } catch (err) {
@@ -176,6 +231,15 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
   }
 
   const consumerStatus = syncStatus.getConsumerLabel();
+
+  // If viewing Connected Devices subview
+  if (activeSubView === "devices") {
+    return (
+      <div className="privacy-page-container">
+        <ConnectedDevicesView onBack={() => setActiveSubView("overview")} />
+      </div>
+    );
+  }
 
   return (
     <div className="privacy-page-container" aria-labelledby="privacy-page-title">
@@ -196,19 +260,243 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
         </div>
       )}
 
-      {/* Header Banner */}
+      {/* Header Banner - Section 18.1 */}
       <header className="privacy-header-banner">
         <div className="privacy-header-badge">
           <Shield className="badge-icon-svg" />
-          <span>Privacy-By-Design & Local-First Security</span>
+          <span>Privacy & Data Sovereignty</span>
         </div>
-        <h1 id="privacy-page-title" className="privacy-header-title">Privacy Policy & Data Sovereignty</h1>
+        <h1 id="privacy-page-title" className="privacy-header-title">Privacy & Cloud</h1>
         <p className="privacy-header-sub">
-          At FoodCue, your food data belongs strictly to you. We operate on a local-first architecture: your scans, pantry inventory, allergen avoid-lists, and dates reside privately inside your browser&apos;s IndexedDB and are never tracked, monetized, or sold.
+          Choose how FoodCue stores your kitchen information. Your data stays on this device unless you choose to enable cloud sync.
         </p>
       </header>
 
-      {/* 8 Core Privacy Sections */}
+      {/* ===================================================================== */}
+      {/* STORAGE OVERVIEW: ON THIS DEVICE & CLOUD (Section 18.2 & 18.3)         */}
+      {/* ===================================================================== */}
+      <div className="storage-overview-container mb-24">
+        <div className="storage-overview-grid">
+          {/* Box 1: On this device */}
+          <div className="storage-overview-box local-box">
+            <div className="box-title-row">
+              <div className="icon-pill bg-brand-light">
+                <HardDrive size={18} className="text-brand" />
+              </div>
+              <div>
+                <h2 className="box-title">On this device</h2>
+                <span className="tiny text-muted">Primary offline-first IndexedDB database</span>
+              </div>
+            </div>
+
+            <div className="storage-meter-box mt-16">
+              <div className="storage-meter-header">
+                <span className="font-semibold text-xs">Local Storage Quota</span>
+                <span className="text-xs text-muted">
+                  {quota.usedMB} MB used {quota.totalMB > 0 ? `/ ${quota.totalMB} MB` : ""} ({quota.percent}%)
+                </span>
+              </div>
+
+              <div className="quota-progress-bar mt-6">
+                <div
+                  className="quota-progress-fill"
+                  style={{ width: `${Math.max(4, quota.percent)}%` }}
+                />
+              </div>
+
+              <div className="stats-breakdown-grid mt-12">
+                <div className="stat-pill">
+                  <span className="stat-num">{stats.pantryEvents}</span>
+                  <span className="stat-lbl">Pantry Events</span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-num">{stats.confirmedLabels}</span>
+                  <span className="stat-lbl">Confirmed Labels</span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-num">{stats.shoppingItems}</span>
+                  <span className="stat-lbl">Shopping Items</span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-num">{stats.candidates}</span>
+                  <span className="stat-lbl">Scanned Packs</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="box-actions-row mt-16">
+              <button
+                type="button"
+                className="btn-secondary-sm"
+                onClick={handleExportJson}
+              >
+                <Download size={14} />
+                <span>Export Data</span>
+              </button>
+
+              {confirmClear ? (
+                <div className="confirm-delete-box">
+                  <p className="tiny text-danger font-semibold mb-4">Wipe all local data from this device?</p>
+                  <div className="btn-group-sm">
+                    <button type="button" className="btn-danger-sm" onClick={handleClearData}>
+                      Confirm
+                    </button>
+                    <button type="button" className="btn-ghost-sm" onClick={() => setConfirmClear(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-ghost-danger-sm"
+                  onClick={() => setConfirmClear(true)}
+                >
+                  <Trash2 size={14} />
+                  <span>Clear local data</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Box 2: Cloud */}
+          <div className="storage-overview-box cloud-box">
+            <div className="box-title-row">
+              <div className="icon-pill bg-purple-light">
+                <Cloud size={18} className="text-purple" />
+              </div>
+              <div>
+                <h2 className="box-title">Cloud</h2>
+                <span className="tiny text-muted">Private encrypted sync & backup (Neon PostgreSQL)</span>
+              </div>
+            </div>
+
+            {/* Sync status card (Section 18.3) */}
+            <div className="sync-status-card-inner mt-16">
+              <div className="status-flex">
+                <span className={`status-bubble ${consumerStatus.variant === "success" ? "bg-green" : consumerStatus.variant === "syncing" ? "bg-blue" : consumerStatus.variant === "warning" ? "bg-amber" : "bg-gray"}`} />
+                <div>
+                  <strong className="text-sm block">{consumerStatus.text}</strong>
+                  <span className="tiny text-muted">
+                    {syncState.isCloudEnabled
+                      ? syncState.lastSyncTime
+                        ? `Last successful sync: ${new Date(syncState.lastSyncTime).toLocaleTimeString()}`
+                        : "Synchronisation enabled"
+                      : "Your information remains on this device."}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action depending on state */}
+              <div className="sync-card-action mt-12">
+                {syncState.isCloudEnabled ? (
+                  <button
+                    type="button"
+                    className="btn-secondary-sm"
+                    onClick={handleTriggerSync}
+                    disabled={isSyncing}
+                  >
+                    <RefreshCw size={14} className={isSyncing ? "spin" : ""} />
+                    <span>{isSyncing ? "Syncing..." : "Sync Now"}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-primary-sm"
+                    onClick={() => {
+                      if (!isSignedIn) {
+                        setMessage("Please sign in or create an account first to enable cloud synchronisation.");
+                      } else {
+                        setShowMigrationWizard(true);
+                      }
+                    }}
+                  >
+                    <Cloud size={14} />
+                    <span>Enable Cloud Sync</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Cloud Controls (Devices, Disable Sync, Delete Cloud Data) */}
+            <div className="cloud-controls-list mt-16">
+              <button
+                type="button"
+                className="cloud-control-row"
+                onClick={() => setActiveSubView("devices")}
+              >
+                <div className="flex items-center gap-8">
+                  <Smartphone size={16} className="text-brand" />
+                  <span className="text-xs font-semibold">Manage Connected Devices</span>
+                </div>
+                <ChevronRight size={14} className="text-muted" />
+              </button>
+
+              {syncState.isCloudEnabled && (
+                <div className="disable-sync-group mt-12">
+                  {confirmDisableSync ? (
+                    <div className="confirm-delete-box">
+                      <p className="tiny text-muted mb-4">
+                        New local changes will no longer upload. Existing cloud records remain safe in your account.
+                      </p>
+                      <div className="btn-group-sm">
+                        <button type="button" className="btn-secondary-sm" onClick={handleDisableSync}>
+                          Confirm Disable
+                        </button>
+                        <button type="button" className="btn-ghost-sm" onClick={() => setConfirmDisableSync(false)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-ghost-sm text-muted"
+                      onClick={() => setConfirmDisableSync(true)}
+                    >
+                      <CloudOff size={14} />
+                      <span>Disable Cloud Sync</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {isSignedIn && (
+                <div className="delete-cloud-group mt-8">
+                  {confirmDeleteCloud ? (
+                    <div className="confirm-delete-box">
+                      <p className="tiny text-danger font-semibold mb-4">
+                        Permanently erase all your cloud records and synchronised copies? Local data on this device will NOT be deleted.
+                      </p>
+                      <div className="btn-group-sm">
+                        <button type="button" className="btn-danger-sm" onClick={handleDeleteCloudData}>
+                          Erase Cloud Data
+                        </button>
+                        <button type="button" className="btn-ghost-sm" onClick={() => setConfirmDeleteCloud(false)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-ghost-danger-sm"
+                      onClick={() => setConfirmDeleteCloud(true)}
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete Cloud Data</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* 8 CORE PRIVACY & ARCHITECTURE SECTIONS                                */}
+      {/* ===================================================================== */}
       <div className="privacy-sections-layout">
         {/* Section 1: Privacy at FoodCue */}
         <section className="privacy-card" aria-labelledby="sec-1-title">
@@ -248,38 +536,6 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
             <p>
               All application state is saved directly inside your browser using <strong>IndexedDB (v3: foodcue-local)</strong>. This includes your scanned product candidates, confirmed packaging labels, nutrition evaluations, and pantry event log.
             </p>
-
-            <div className="storage-meter-box mt-16">
-              <div className="storage-meter-header">
-                <span className="font-semibold text-sm">Device Storage Usage</span>
-                <span className="text-xs text-muted">
-                  Used: {quota.usedMB} MB / {quota.totalMB > 0 ? `${quota.totalMB} MB` : "Quota Dynamic"} ({quota.percent}%)
-                </span>
-              </div>
-
-              <div className="quota-progress-bar mt-8">
-                <div
-                  className="quota-progress-fill"
-                  style={{ width: `${Math.max(4, quota.percent)}%` }}
-                />
-              </div>
-
-              <div className="stats-breakdown-grid mt-12">
-                <div className="stat-pill">
-                  <span className="stat-num">{stats.candidates}</span>
-                  <span className="stat-lbl">Product Candidates</span>
-                </div>
-                <div className="stat-pill">
-                  <span className="stat-num">{stats.confirmedLabels}</span>
-                  <span className="stat-lbl">Confirmed Labels</span>
-                </div>
-                <div className="stat-pill">
-                  <span className="stat-num">{stats.pantryEvents}</span>
-                  <span className="stat-lbl">Pantry Events</span>
-                </div>
-              </div>
-            </div>
-
             <p className="tiny text-muted mt-12">
               <Info className="inline-icon" /> <em>Browser Storage Retention Notice:</em> If you clear your browser cookies and site data, or browse in an incognito/private window, local IndexedDB records will be reset. Use the Export Data tool below to create permanent offline JSON backups.
             </p>
@@ -294,7 +550,7 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
             </div>
             <div>
               <span className="section-number">Section 3</span>
-              <h2 id="sec-3-title" className="section-heading">Optional Accounts</h2>
+              <h2 id="sec-3-title" className="section-heading">Optional Accounts & Authentication</h2>
             </div>
           </div>
           <div className="privacy-card-body">
@@ -315,73 +571,29 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
             </div>
             <div>
               <span className="section-number">Section 4</span>
-              <h2 id="sec-4-title" className="section-heading">Multi-Device Cloud Sync</h2>
+              <h2 id="sec-4-title" className="section-heading">Multi-Device Cloud Synchronisation</h2>
             </div>
           </div>
           <div className="privacy-card-body">
             <p>
-              When you opt in to multi-device synchronization, FoodCue securely replicates your pantry ledger, shopping list, and confirmed product labels to your private encrypted cloud account.
+              When you opt in to multi-device synchronization, FoodCue securely replicates your pantry ledger, shopping list, and confirmed product labels to your private encrypted cloud account on <strong>Neon Serverless PostgreSQL</strong>.
             </p>
-
-            <div className="neon-status-card mt-12">
-              <div className="status-indicator-row">
-                <div className="status-flex">
-                  <span className={`status-bubble ${consumerStatus.variant === "success" ? "bg-green" : "bg-gray"}`} />
-                  <div>
-                    <strong className="text-sm">{consumerStatus.text}</strong>
-                    <div className="tiny text-muted">
-                      {syncState.lastSyncTime
-                        ? `Last synced: ${new Date(syncState.lastSyncTime).toLocaleTimeString()}`
-                        : "Encrypted delta synchronization"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="sync-actions-row">
-                  {syncState.isCloudEnabled ? (
-                    <button
-                      type="button"
-                      className="btn-secondary-sm"
-                      onClick={handleTriggerSync}
-                      disabled={isSyncing}
-                    >
-                      <RefreshCw className={`btn-icon-xs ${isSyncing ? "spin" : ""}`} />
-                      {isSyncing ? "Syncing..." : "Sync Now"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-primary-sm"
-                      onClick={() => setShowMigrationWizard(true)}
-                    >
-                      <Cloud className="btn-icon-xs" />
-                      Enable Cloud Sync
-                    </button>
-                  )}
+            <div className="features-value-grid mt-16">
+              <div className="feature-mini-card">
+                <Smartphone className="mini-card-icon text-brand" />
+                <div>
+                  <strong className="text-xs">Offline-First Engine</strong>
+                  <p className="tiny text-muted">Mutations queue locally in IndexedDB and auto-flush on reconnection.</p>
                 </div>
               </div>
-
-              <div className="features-value-grid mt-16">
-                <div className="feature-mini-card">
-                  <Smartphone className="mini-card-icon text-brand" />
-                  <div>
-                    <strong className="text-xs">Offline-First Engine</strong>
-                    <p className="tiny text-muted">Mutations queue locally and auto-flush on reconnection.</p>
-                  </div>
-                </div>
-                <div className="feature-mini-card">
-                  <Shield className="mini-card-icon text-emerald" />
-                  <div>
-                    <strong className="text-xs">End-to-End User Isolation</strong>
-                    <p className="tiny text-muted">Strict horizontal authorization prevents cross-user access.</p>
-                  </div>
+              <div className="feature-mini-card">
+                <Shield className="mini-card-icon text-emerald" />
+                <div>
+                  <strong className="text-xs">End-to-End User Isolation</strong>
+                  <p className="tiny text-muted">Strict horizontal authorization prevents cross-user access.</p>
                 </div>
               </div>
             </div>
-
-            <p className="tiny text-muted mt-12">
-              <Info className="inline-icon" /> <em>Zero-Lock-in Guarantee:</em> You can disable cloud sync or delete all cloud records at any time. Your local device copy remains fully functional.
-            </p>
           </div>
         </section>
 
@@ -403,7 +615,7 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
             <ul className="bullet-list mt-12">
               <li><strong>Local Frame Processing:</strong> Camera video frames are processed on-device using WebAssembly (ZXing). No live video stream is transmitted to external servers.</li>
               <li><strong>Physical Confirmation Gate:</strong> Scanned candidates require your physical package verification before being confirmed into your pantry.</li>
-              <li><strong>Temporary Storage:</strong> Uploaded photo panels are stored exclusively inside your browser&apos;s local IndexedDB.</li>
+              <li><strong>Temporary Storage:</strong> Uploaded photo panels are stored exclusively inside your browser&apos;s local IndexedDB and are never uploaded to the cloud.</li>
             </ul>
           </div>
         </section>
@@ -445,7 +657,6 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
             <p>
               Take complete control of your kitchen records. Export an unencrypted, open-standard JSON snapshot, import a previous backup, or cleanly erase all stored data from this browser.
             </p>
-
             <div className="data-management-actions-grid mt-16">
               <div className="action-tile">
                 <div className="action-tile-info">
@@ -479,34 +690,6 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
                     className="hidden-file-input"
                   />
                 </label>
-              </div>
-
-              <div className="action-tile danger-tile">
-                <div className="action-tile-info">
-                  <Trash2 className="action-tile-icon text-danger" />
-                  <div>
-                    <strong className="text-sm text-danger">Reset Local Storage</strong>
-                    <p className="tiny text-muted">Permanently wipes all IndexedDB tables, candidates, confirmed labels, and local settings from this browser.</p>
-                  </div>
-                </div>
-                {confirmClear ? (
-                  <div className="confirm-delete-box mt-8">
-                    <p className="tiny text-danger font-semibold mb-4">Are you completely sure? This action cannot be undone.</p>
-                    <div className="btn-group-sm">
-                      <button type="button" className="btn-danger-sm" onClick={handleClearData}>
-                        Confirm Reset
-                      </button>
-                      <button type="button" className="btn-ghost-sm" onClick={() => setConfirmClear(false)}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button type="button" className="btn-danger-sm mt-8" onClick={() => setConfirmClear(true)}>
-                    <Trash2 className="btn-icon-xs" />
-                    Wipe Local Data
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -546,7 +729,7 @@ export function Privacy({ onDataRestored }: { onDataRestored?: () => void }) {
         </section>
       </div>
 
-      {/* Migration Wizard Modal */}
+      {/* Migration Wizard Modal (7 Steps) */}
       <MigrationWizard
         isOpen={showMigrationWizard}
         onClose={() => setShowMigrationWizard(false)}

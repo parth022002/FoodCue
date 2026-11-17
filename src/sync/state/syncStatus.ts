@@ -68,38 +68,30 @@ class SyncStatusStore {
 
   /**
    * Returns a consumer-grade, non-technical status label for user display.
+   * Conforms strictly to FoodCue Master Specification v13.5 §20 UX requirements.
    */
   getConsumerLabel(): { text: string; variant: "success" | "warning" | "neutral" | "syncing" } {
     if (!this.state.isCloudEnabled) {
-      return { text: "Stored locally on device", variant: "neutral" };
+      return { text: "Stored on this device", variant: "neutral" };
     }
 
     if (this.state.status === "syncing") {
-      return { text: "Syncing changes...", variant: "syncing" };
+      return { text: "Syncing your kitchen", variant: "syncing" };
     }
 
     if (this.state.status === "offline") {
-      if (this.state.pendingCount > 0) {
-        return {
-          text: `${this.state.pendingCount} item${this.state.pendingCount > 1 ? "s" : ""} waiting to sync`,
-          variant: "warning"
-        };
-      }
-      return { text: "Offline — saved on device", variant: "neutral" };
+      return { text: "You're offline. Your changes are saved here.", variant: "neutral" };
     }
 
     if (this.state.status === "error") {
-      return { text: "Sync paused — will retry", variant: "warning" };
+      return { text: "Sync needs attention", variant: "warning" };
     }
 
     if (this.state.pendingCount > 0) {
-      return {
-        text: `${this.state.pendingCount} change${this.state.pendingCount > 1 ? "s" : ""} waiting to sync`,
-        variant: "warning"
-      };
+      return { text: "Changes waiting to sync", variant: "warning" };
     }
 
-    return { text: "All synced to cloud", variant: "success" };
+    return { text: "Your kitchen is up to date", variant: "success" };
   }
 }
 

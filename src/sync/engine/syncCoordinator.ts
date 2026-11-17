@@ -7,7 +7,8 @@
 import { localChangeQueue } from "../queue/localChangeQueue";
 import { syncMetadata } from "../state/syncMetadata";
 import { syncStatus } from "../state/syncStatus";
-import { conflictResolver } from "../reconciliation/conflictResolver";
+import { conflictResolver, type ShoppingItemPayload } from "../reconciliation/conflictResolver";
+import { shoppingStorage } from "../../adapters/storage/shoppingStorage";
 import { SyncApiClient } from "../transport/syncApiClient";
 import { openDatabase, registerStorageMutationListener } from "../../adapters/storage/database";
 import type { PantryEvent } from "../../domain/entities/pantry";
@@ -195,13 +196,21 @@ class SyncCoordinator {
 
     const remotePantryEvents: PantryEvent[] = [];
     const remoteLabels: ConfirmedLabel[] = [];
+    const remoteShoppingItems: ShoppingItemPayload[] = [];
 
     for (const op of operations) {
       if (op.entityType === "pantry_event" && op.payload) {
         remotePantryEvents.push(op.payload as unknown as PantryEvent);
       } else if (op.entityType === "confirmed_label" && op.payload) {
         remoteLabels.push(op.payload as unknown as ConfirmedLabel);
+      } else if (op.entityType === "shopping_item" && op.payload) {
+        remoteShoppingItems.push(op.payload as unknown as ShoppingItemPayload);
       }
+    }
+
+    // Merge remote shopping items into local shopping storage
+    if (remoteShoppingItems.length > 0) {
+      await shoppingStorage.mergeRemoteItems(remoteShoppingItems);
     }
 
     // Merge remote pantry events into local pantryEvents store

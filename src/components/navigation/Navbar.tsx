@@ -172,26 +172,29 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
 
           {/* Right: Account, Status & Privacy Controls */}
           <div className="navbar-right-actions">
-            {/* Storage / Cloud Sync Status Indicator */}
+            {/* Storage / Cloud Sync Status Indicator — Links to Privacy & Cloud (Section 20) */}
             {syncState.isCloudEnabled ? (
-              <div
+              <button
+                type="button"
                 className={`sync-status-badge ${syncStatus.getConsumerLabel().variant}`}
-                title={syncStatus.getConsumerLabel().text}
+                onClick={() => handleTabClick("privacy")}
+                title={`${syncStatus.getConsumerLabel().text} — Click to view Privacy & Cloud`}
+                aria-label={`Sync Status: ${syncStatus.getConsumerLabel().text}. Open Privacy & Cloud`}
               >
                 <span className={`sync-status-dot ${syncStatus.getConsumerLabel().variant}`} aria-hidden="true" />
                 <span className="sync-status-text">{syncStatus.getConsumerLabel().text}</span>
-              </div>
+              </button>
             ) : (
-              <div
+              <button
+                type="button"
                 className="local-status-badge"
-                title="Data stored privately on this device (IndexedDB)"
-                onClick={() => {
-                  if (user) setShowMigrationWizard(true);
-                }}
+                onClick={() => handleTabClick("privacy")}
+                title="Stored on this device — Click to view Privacy & Cloud"
+                aria-label="Storage Status: Stored on this device. Open Privacy & Cloud"
               >
                 <span className="local-status-dot" aria-hidden="true" />
-                <span className="local-status-text">Local</span>
-              </div>
+                <span className="local-status-text">Stored on this device</span>
+              </button>
             )}
 
             {/* Privacy Shortcut */}

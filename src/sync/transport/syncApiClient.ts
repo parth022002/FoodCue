@@ -136,4 +136,50 @@ export class SyncApiClient {
 
     return res.ok;
   }
+
+  /**
+   * Retrieves cloud synchronization status from /api/sync/status.
+   */
+  async getStatus(): Promise<{
+    syncEnabled: boolean;
+    activeDevicesCount: number;
+    lastSuccessfulSync: string | null;
+    currentCursor: string | null;
+    totalOperations: number;
+    cloudRecordCounts: {
+      pantryEvents: number;
+      confirmedLabels: number;
+      shoppingItems: number;
+    };
+    serverTimestamp: string;
+  }> {
+    const headers = await this.getAuthHeaders();
+    const res = await fetch("/api/sync/status", {
+      method: "GET",
+      headers
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to retrieve sync status (HTTP ${res.status})`);
+    }
+
+    return await res.json();
+  }
+
+  /**
+   * Permanently deletes all cloud data associated with the user.
+   */
+  async deleteCloudData(): Promise<{ success: boolean; message: string }> {
+    const headers = await this.getAuthHeaders();
+    const res = await fetch("/api/sync/deleteCloudData", {
+      method: "POST",
+      headers
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to delete cloud data (HTTP ${res.status})`);
+    }
+
+    return await res.json();
+  }
 }

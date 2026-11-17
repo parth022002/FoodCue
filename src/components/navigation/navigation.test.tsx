@@ -45,9 +45,9 @@ describe("FoodCue Brand & Navigation Redesign", () => {
     expect(screen.getByRole("button", { name: /shopping list/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /catalogue/i })).toBeInTheDocument();
 
-    // Right-side controls
-    expect(screen.getByText("Local")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /privacy/i })).toBeInTheDocument();
+    // Right-side controls (Section 20: Stored on this device)
+    expect(screen.getByText("Stored on this device")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /privacy/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign up/i })).toBeInTheDocument();
 

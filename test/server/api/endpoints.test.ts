@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import healthHandler from "../../../api/health";
 import meHandler from "../../../src/server/endpoints/me";
+import devicesHandler from "../../../src/server/endpoints/devices";
+import syncStatusHandler from "../../../src/server/endpoints/syncStatus";
+import deleteCloudDataHandler from "../../../src/server/endpoints/deleteCloudData";
+import syncPushHandler from "../../../src/server/endpoints/syncPush";
+import syncPullHandler from "../../../src/server/endpoints/syncPull";
+import syncMigrateHandler from "../../../src/server/endpoints/syncMigrate";
 import webhookHandler from "../../../api/webhooks/clerk";
 import { generateSvixSignature } from "../../../src/server/auth/svixVerification";
 import { userRepository } from "../../../src/server/database/repositories/user.repository";
@@ -493,6 +499,64 @@ describe("Serverless API Endpoints", () => {
           delete process.env.CLERK_WEBHOOK_SIGNING_SECRET;
         }
       }
+    });
+  });
+
+  describe("Protected Cloud Sync & Device API Endpoints", () => {
+    it("GET /api/devices rejects unauthenticated requests with 401 Unauthorized", async () => {
+      const request = new Request("https://foodcue.local/api/devices", { method: "GET" });
+      const response = await devicesHandler(request);
+      expect(response.status).toBe(401);
+      const body = await response.json();
+      expect(body.code).toBe("UNAUTHORIZED");
+    });
+
+    it("GET /api/sync/status rejects unauthenticated requests with 401 Unauthorized", async () => {
+      const request = new Request("https://foodcue.local/api/sync/status", { method: "GET" });
+      const response = await syncStatusHandler(request);
+      expect(response.status).toBe(401);
+      const body = await response.json();
+      expect(body.code).toBe("UNAUTHORIZED");
+    });
+
+    it("POST /api/sync/push rejects unauthenticated requests with 401 Unauthorized", async () => {
+      const request = new Request("https://foodcue.local/api/sync/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId: "dev-1", operations: [] })
+      });
+      const response = await syncPushHandler(request);
+      expect(response.status).toBe(401);
+      const body = await response.json();
+      expect(body.code).toBe("UNAUTHORIZED");
+    });
+
+    it("GET /api/sync/pull rejects unauthenticated requests with 401 Unauthorized", async () => {
+      const request = new Request("https://foodcue.local/api/sync/pull", { method: "GET" });
+      const response = await syncPullHandler(request);
+      expect(response.status).toBe(401);
+      const body = await response.json();
+      expect(body.code).toBe("UNAUTHORIZED");
+    });
+
+    it("POST /api/sync/migrate rejects unauthenticated requests with 401 Unauthorized", async () => {
+      const request = new Request("https://foodcue.local/api/sync/migrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pantryEvents: [] })
+      });
+      const response = await syncMigrateHandler(request);
+      expect(response.status).toBe(401);
+      const body = await response.json();
+      expect(body.code).toBe("UNAUTHORIZED");
+    });
+
+    it("POST /api/sync/deleteCloudData rejects unauthenticated requests with 401 Unauthorized", async () => {
+      const request = new Request("https://foodcue.local/api/sync/deleteCloudData", { method: "POST" });
+      const response = await deleteCloudDataHandler(request);
+      expect(response.status).toBe(401);
+      const body = await response.json();
+      expect(body.code).toBe("UNAUTHORIZED");
     });
   });
 });

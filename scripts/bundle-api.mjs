@@ -22,6 +22,14 @@ const targets = [
   {
     entry: "src/server/endpoints/syncMigrate.ts",
     outfile: "api/sync/migrate.js"
+  },
+  {
+    entry: "src/server/endpoints/syncStatus.ts",
+    outfile: "api/sync/status.js"
+  },
+  {
+    entry: "src/server/endpoints/deleteCloudData.ts",
+    outfile: "api/sync/deleteCloudData.js"
   }
 ];
 

@@ -94,7 +94,10 @@ export function App() {
         )}
 
         {tab === "profile" && (
-          <ProfileView onProfileChange={(prof) => setCalmModeActive(prof.calmMode)} />
+          <ProfileView
+            onProfileChange={(prof) => setCalmModeActive(prof.calmMode)}
+            onNavigateToPrivacy={() => setTab("privacy")}
+          />
         )}
 
         {tab === "privacy" && (

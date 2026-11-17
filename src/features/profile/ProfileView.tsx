@@ -59,7 +59,13 @@ const COMMON_AVOID_INGREDIENTS = [
   "Hydrogenated Vegetable Oils (Trans Fats)"
 ];
 
-function MultiDeviceSyncSection({ onOpenMigration }: { onOpenMigration: () => void }) {
+function MultiDeviceSyncSection({
+  onOpenMigration,
+  onNavigateToPrivacy
+}: {
+  onOpenMigration: () => void;
+  onNavigateToPrivacy?: () => void;
+}) {
   const { isSignedIn } = useUser();
   const { getToken } = useAuth();
   const [syncState, setSyncState] = useState(syncStatus.getState());
@@ -203,6 +209,18 @@ function MultiDeviceSyncSection({ onOpenMigration }: { onOpenMigration: () => vo
             </div>
           )}
         </Show>
+        {onNavigateToPrivacy && (
+          <div className="privacy-link-row mt-16 pt-12 border-t border-slate-100 flex items-center justify-between">
+            <span className="tiny text-muted">Manage storage quotas, data exports, and cloud consent</span>
+            <button
+              type="button"
+              className="btn-ghost-sm text-brand font-medium"
+              onClick={onNavigateToPrivacy}
+            >
+              Open Privacy & Cloud Settings →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -308,9 +326,11 @@ function HouseholdSharingSection() {
 }
 
 export function ProfileView({
-  onProfileChange
+  onProfileChange,
+  onNavigateToPrivacy
 }: {
   onProfileChange: (profile: UserFoodProfile) => void;
+  onNavigateToPrivacy?: () => void;
 }) {
   const { user, isSignedIn } = useUser();
   const [showMigrationWizard, setShowMigrationWizard] = useState(false);
@@ -454,7 +474,10 @@ export function ProfileView({
       <HouseholdSharingSection />
 
       {/* Multi-Device Cloud Sync Section */}
-      <MultiDeviceSyncSection onOpenMigration={() => setShowMigrationWizard(true)} />
+      <MultiDeviceSyncSection
+        onOpenMigration={() => setShowMigrationWizard(true)}
+        onNavigateToPrivacy={onNavigateToPrivacy}
+      />
 
       {/* Food Safety & Dietary Avoid-List Card */}
       <section className="profile-section-card mb-24" aria-labelledby="dietary-heading">
