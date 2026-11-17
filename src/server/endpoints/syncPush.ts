@@ -1,12 +1,12 @@
-import { authenticateRequest } from "../../src/server/auth/authorization";
-import { syncRepository } from "../../src/server/database/repositories/sync.repository";
+import { authenticateRequest } from "../auth/authorization";
+import { syncRepository } from "../database/repositories/sync.repository";
 import {
   sendResponse,
   errorResponse,
   parseRequest,
   type UniversalServerRequest,
   type UniversalServerResponse
-} from "../../src/server/utils/response";
+} from "../utils/response";
 
 export const config = {
   runtime: "nodejs"

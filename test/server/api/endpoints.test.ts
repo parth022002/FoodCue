@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import healthHandler from "../../../api/health";
-import meHandler from "../../../api/me";
+import meHandler from "../../../src/server/endpoints/me";
 import webhookHandler from "../../../api/webhooks/clerk";
 import { generateSvixSignature } from "../../../src/server/auth/svixVerification";
 import { userRepository } from "../../../src/server/database/repositories/user.repository";

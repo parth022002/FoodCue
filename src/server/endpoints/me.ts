@@ -1,12 +1,12 @@
-import { authenticateRequest } from "../src/server/auth/authorization";
-import { userService } from "../src/server/services/user.service";
+import { authenticateRequest } from "../auth/authorization";
+import { userService } from "../services/user.service";
 import {
   sendResponse,
   errorResponse,
   parseRequest,
   type UniversalServerRequest,
   type UniversalServerResponse
-} from "../src/server/utils/response";
+} from "../utils/response";
 
 export const config = {
   runtime: "nodejs"

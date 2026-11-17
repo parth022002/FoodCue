@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import pushHandler from "../../../api/sync/push";
-import pullHandler from "../../../api/sync/pull";
-import migrateHandler from "../../../api/sync/migrate";
-import devicesHandler from "../../../api/devices/index";
+import pushHandler from "../../../src/server/endpoints/syncPush";
+import pullHandler from "../../../src/server/endpoints/syncPull";
+import migrateHandler from "../../../src/server/endpoints/syncMigrate";
+import devicesHandler from "../../../src/server/endpoints/devices";
 import * as authModule from "../../../src/server/auth/authorization";
 import { syncRepository } from "../../../src/server/database/repositories/sync.repository";
 
