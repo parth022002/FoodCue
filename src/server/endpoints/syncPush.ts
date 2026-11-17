@@ -56,6 +56,14 @@ export default async function handler(
       );
     }
 
+    if (body.operations.length > 100) {
+      return sendResponse(
+        res,
+        { error: "Batch size limit exceeded. Maximum 100 operations allowed per sync push.", code: "BATCH_SIZE_EXCEEDED" },
+        400
+      );
+    }
+
     // Check device revocation
     const isRevoked = await syncRepository.isDeviceRevoked(body.deviceId, userContext.clerkUserId);
     if (isRevoked) {

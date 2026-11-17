@@ -531,6 +531,39 @@ describe("Serverless API Endpoints", () => {
       expect(body.code).toBe("UNAUTHORIZED");
     });
 
+    it("POST /api/sync/push rejects oversized batches exceeding 100 operations with 400 BATCH_SIZE_EXCEEDED", async () => {
+      // Mock authenticated session
+      const auth = await import("../../../src/server/auth/authorization");
+      const spyAuth = vi.spyOn(auth, "authenticateRequest").mockResolvedValue({
+        clerkUserId: "user_test_push_limit",
+        sessionClaims: {},
+        authorizedAt: new Date().toISOString()
+      });
+
+      const oversizedOps = Array.from({ length: 105 }, (_, i) => ({
+        idempotencyKey: `key-${i}`,
+        entityType: "pantry_event",
+        entityId: `ev-${i}`,
+        operationType: "append_event",
+        payload: {},
+        clientTimestamp: new Date().toISOString()
+      }));
+
+      const request = new Request("https://foodcue.local/api/sync/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer fake_token" },
+        body: JSON.stringify({ deviceId: "dev-1", operations: oversizedOps })
+      });
+
+      const response = await syncPushHandler(request);
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.code).toBe("BATCH_SIZE_EXCEEDED");
+      expect(body.error).toContain("Maximum 100 operations");
+
+      spyAuth.mockRestore();
+    });
+
     it("GET /api/sync/pull rejects unauthenticated requests with 401 Unauthorized", async () => {
       const request = new Request("https://foodcue.local/api/sync/pull", { method: "GET" });
       const response = await syncPullHandler(request);

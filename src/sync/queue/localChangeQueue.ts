@@ -14,6 +14,16 @@ function generateUUID(): string {
   return "op_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 }
 
+let lastCreatedAt = 0;
+function getMonotonicIso(): string {
+  let now = Date.now();
+  if (now <= lastCreatedAt) {
+    now = lastCreatedAt + 1;
+  }
+  lastCreatedAt = now;
+  return new Date(now).toISOString();
+}
+
 export const localChangeQueue = {
   /**
    * Enqueues a new sync operation into IndexedDB.
@@ -28,7 +38,7 @@ export const localChangeQueue = {
   }): Promise<SyncOperation> {
     const db = await openDatabase();
     const id = generateUUID();
-    const now = new Date().toISOString();
+    const now = getMonotonicIso();
 
     const record: SyncOperation = {
       id,

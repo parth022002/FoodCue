@@ -96,4 +96,39 @@ describe("Food Intelligence Engine", () => {
   it("contains all 8 verified catalogue products", () => {
     expect(VERIFIED_INDIAN_CATALOG.length).toBeGreaterThanOrEqual(8);
   });
+
+  it("identifies expanded INS food additives with explicit purpose and human-readable names", () => {
+    const product = findProductByGtin("8901719101037")!; // Parle-G has INS 500(ii), 503(ii), 223
+    const candidate: ProductCandidate = {
+      candidateId: product.id,
+      identifier: product.gtin,
+      identifierType: "gtin",
+      displayName: product.productName,
+      status: "candidate",
+      provenance: ["manual"],
+      observedAt: new Date().toISOString(),
+      conflicts: []
+    };
+
+    const label = createConfirmedLabel({
+      candidate,
+      physicalIdentity: product.productName,
+      labelVersion: "2026 Batch",
+      panels: ["ingredients", "allergen_declaration", "nutrition"],
+      fieldStates: {
+        physical_identity: "confirmed",
+        ingredients_panel: "confirmed",
+        allergen_declaration_panel: "confirmed",
+        nutrition_panel: "confirmed"
+      },
+      evidenceReferences: ["test"]
+    });
+
+    const analysis = evaluateConfirmedFoodLabel(label, product);
+    const additives = analysis.ingredients.filter((i) => i.isAdditive);
+    expect(additives.length).toBeGreaterThan(0);
+    const ins500 = additives.find((a) => a.insNumber?.includes("500"));
+    expect(ins500).toBeDefined();
+    expect(ins500?.purpose?.toLowerCase()).toContain("raising agent");
+  });
 });

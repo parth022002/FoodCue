@@ -37,6 +37,17 @@ export function ConnectedDevicesView({ onBack }: ConnectedDevicesViewProps) {
     loadDevices();
   }, [isSignedIn, getToken]);
 
+  useEffect(() => {
+    if (!deviceToRevoke) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDeviceToRevoke(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [deviceToRevoke]);
+
   async function loadDevices() {
     setLoading(true);
     setActionError(null);
@@ -211,7 +222,12 @@ export function ConnectedDevicesView({ onBack }: ConnectedDevicesViewProps) {
 
       {/* Confirmation Modal */}
       {deviceToRevoke && (
-        <div className="migration-modal-overlay" role="dialog" aria-modal="true">
+        <div
+          className="migration-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="revoke-modal-title"
+        >
           <div className="migration-modal-card">
             <button
               type="button"
@@ -227,7 +243,7 @@ export function ConnectedDevicesView({ onBack }: ConnectedDevicesViewProps) {
                 <AlertTriangle size={36} className="text-danger" />
               </div>
 
-              <h3 className="section-card-title text-lg mb-8">
+              <h3 id="revoke-modal-title" className="section-card-title text-lg mb-8">
                 Revoke Device Access?
               </h3>
 

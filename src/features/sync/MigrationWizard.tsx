@@ -68,6 +68,13 @@ export const MigrationWizard: React.FC<MigrationWizardProps> = ({
       return;
     }
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
     let mounted = true;
     setLoadingStats(true);
 
@@ -92,8 +99,9 @@ export const MigrationWizard: React.FC<MigrationWizardProps> = ({
 
     return () => {
       mounted = false;
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

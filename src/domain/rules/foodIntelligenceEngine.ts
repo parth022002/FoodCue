@@ -72,17 +72,36 @@ const MANDATORY_ALLERGENS = [
 const COMMON_ADDITIVES: Record<string, { name: string; purpose: string }> = {
   "INS 322": { name: "Lecithin (Soy/Sunflower)", purpose: "Emulsifier (helps blend oil & water)" },
   "INS 500(ii)": { name: "Sodium Bicarbonate (Baking Soda)", purpose: "Raising agent" },
+  "INS 500": { name: "Sodium Carbonates", purpose: "Acidity regulator & raising agent" },
   "INS 503(ii)": { name: "Ammonium Bicarbonate", purpose: "Raising agent" },
+  "INS 503": { name: "Ammonium Carbonates", purpose: "Raising agent" },
   "INS 223": { name: "Sodium Metabisulphite", purpose: "Preservative & dough conditioner" },
   "INS 160b": { name: "Annatto Extracts", purpose: "Natural food colour" },
   "INS 551": { name: "Silicon Dioxide", purpose: "Anti-caking agent (prevents lumps)" },
   "INS 412": { name: "Guar Gum", purpose: "Thickener & stabiliser" },
   "INS 508": { name: "Potassium Chloride", purpose: "Mineral salt & gelling agent" },
   "INS 635": { name: "Disodium 5'-ribonucleotides", purpose: "Flavour enhancer" },
+  "INS 621": { name: "Monosodium Glutamate (MSG)", purpose: "Flavour enhancer" },
   "INS 319": { name: "TBHQ (Tert-Butylhydroquinone)", purpose: "Antioxidant (prevents oil rancidity)" },
   "INS 304": { name: "Ascorbyl Palmitate", purpose: "Fat-soluble Vitamin C antioxidant" },
+  "INS 330": { name: "Citric Acid", purpose: "Acidity regulator & natural preservative" },
+  "INS 211": { name: "Sodium Benzoate", purpose: "Preservative (anti-microbial)" },
+  "INS 202": { name: "Potassium Sorbate", purpose: "Preservative (anti-fungal)" },
+  "INS 407": { name: "Carrageenan", purpose: "Thickener & gelling agent" },
+  "INS 415": { name: "Xanthan Gum", purpose: "Stabiliser & thickener" },
+  "INS 440": { name: "Pectin", purpose: "Gelling agent & thickener" },
+  "INS 150d": { name: "Caramel IV (Sulphite Ammonia Caramel)", purpose: "Food colour" },
+  "INS 102": { name: "Tartrazine", purpose: "Synthetic food colour (Yellow 5)" },
+  "INS 110": { name: "Sunset Yellow FCF", purpose: "Synthetic food colour (Yellow 6)" },
+  "INS 122": { name: "Carmoisine (Azorubine)", purpose: "Synthetic food colour (Red)" },
+  "INS 133": { name: "Brilliant Blue FCF", purpose: "Synthetic food colour (Blue 1)" },
+  "INS 450": { name: "Diphosphates", purpose: "Emulsifier & raising agent" },
+  "INS 452": { name: "Polyphosphates", purpose: "Texture stabilizer & moisture retainer" },
   "INS 900a": { name: "Polydimethylsiloxane", purpose: "Anti-foaming agent" },
-  "INS 471": { name: "Mono- and Diglycerides of Fatty Acids", purpose: "Emulsifier" }
+  "INS 471": { name: "Mono- and Diglycerides of Fatty Acids", purpose: "Emulsifier" },
+  "INS 955": { name: "Sucralose", purpose: "Non-nutritive sweetener" },
+  "INS 950": { name: "Acesulfame Potassium", purpose: "Non-nutritive sweetener" },
+  "INS 960": { name: "Steviol Glycosides (Stevia)", purpose: "Natural non-nutritive sweetener" }
 };
 
 /**

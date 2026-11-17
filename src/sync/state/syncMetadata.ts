@@ -113,5 +113,19 @@ export const syncMetadata = {
     const current = await this.get();
     current.cloudSyncEnabled = enabled;
     await this.save(current);
+  },
+
+  /**
+   * Resets sync metadata to default unauthenticated local state.
+   */
+  async reset(): Promise<void> {
+    const initialized: SyncMetadataState = {
+      deviceId: generateUUID(),
+      deviceName: detectDeviceName(),
+      clientVersion: "1.0.0",
+      lastSyncTimestamp: null,
+      cloudSyncEnabled: false
+    };
+    await this.save(initialized);
   }
 };
