@@ -7,9 +7,7 @@ import { neon } from "@neondatabase/serverless";
  * matches byte-for-byte with Svix/Clerk.
  */
 export const config = {
-  api: {
-    bodyParser: false
-  }
+  runtime: "nodejs"
 };
 
 function getSql() {

@@ -58,6 +58,14 @@ const targets = [
   {
     entry: "src/server/endpoints/accountDelete.ts",
     outfile: "api/account/delete.js"
+  },
+  {
+    entry: "src/server/endpoints/health.ts",
+    outfile: "api/health.js"
+  },
+  {
+    entry: "src/server/endpoints/clerkWebhook.ts",
+    outfile: "api/webhooks/clerk.js"
   }
 ];
 
@@ -78,7 +86,8 @@ async function bundleAll() {
     console.log(`✓ Bundled ${entry} -> ${outfile}`);
   }
 
-  console.log("All Vercel serverless API handlers bundled successfully!");
+  console.log("All 16 Vercel serverless API handlers bundled successfully!");
+  process.exit(0);
 }
 
 bundleAll().catch((err) => {

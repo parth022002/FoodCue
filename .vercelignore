@@ -2,10 +2,14 @@
 android/
 ios/
 
-# Test coverage & reports
+# Test coverage, reports & tests (Vercel builds production bundle only)
 coverage/
 playwright-report/
 test-results/
+test/
+
+# Documentation reports
+docs/
 
 # Local environment secrets
 .env
