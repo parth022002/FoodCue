@@ -1,0 +1,22 @@
+# Native mobile platform wrappers (Capacitor)
+android/
+ios/
+
+# Test suites & coverage
+test/
+coverage/
+playwright-report/
+test-results/
+
+# Local reports & markdown documentation
+docs/
+*.md
+
+# Git & GitHub internals
+.git/
+.github/
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
