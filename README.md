@@ -2,15 +2,13 @@
 
 ```text
 ========================================================================================
-PROJECT:               FoodCue (Working Brand; Formerly SafeWise AI)
-VERSION:               v5.0.0 (Release Candidate: Closed Beta Candidate)
+PROJECT:               FoodCue
+VERSION:               v5.2.0 (Phase 11 Production Baseline)
 DEVELOPER:             Parth Ahuja
-PRODUCT BASELINE:      FoodCue Master Specification v13.5 (Final Controlled Baseline)
-PRODUCT REQUIREMENTS:  FoodCue PRD v1.3
-SECURITY BASELINE:     FoodCue Security, Privacy and Safety Requirements v1.0
 REPOSITORY:            https://github.com/parth022002/FoodCue.git
-CONTROLLING BUDGET:    INR 0 Cash Target (Zero-Cash Development Baseline)
-STATUS:                213/213 Tests Passing (37 Suites) | Strict TypeScript | Clean Build
+ARCHITECTURE:          Local-First Progressive Web App (PWA) + Neon PostgreSQL + Clerk
+CONTROLLING BUDGET:    INR 0.00 Cash Expenditure (All core services within free tiers)
+STATUS:                240/240 Tests Passing (43 Suites) | 0 TypeScript Errors | Clean Build
 ========================================================================================
 ```
 
@@ -18,71 +16,64 @@ FoodCue is a **local-first, privacy-conscious packaged-food intelligence and kit
 
 ---
 
-## 🚀 Key Capabilities & Completed Architecture
+## 🚀 Key Capabilities
 
-- **Local-First & Zero Mandatory Accounts:** 100% operational offline using IndexedDB (Schema v4). Food scanning, pantry tracking, and expiry alerts require zero sign-in.
+- **Local-First & Zero Mandatory Accounts:** 100% operational offline using client-side IndexedDB (Dexie). Barcode scanning, OCR packaging analysis, pantry logging, and avoid-list checks require zero sign-in.
 - **Universal SmartScan Pipeline:**
-  - Real-time camera viewfinder with hardware controls (torch/flashlight, zoom slider, camera switching) and animated reticle.
-  - Universal 1D/2D barcode decoding powered by `@sec-ant/zxing-wasm` (EAN-13, EAN-8, UPC-A, UPC-E, QR Code, GS1 Digital Link).
-  - Background Web Worker OCR with OpenCV-style grayscale binarization and contrast enhancement.
-- **Offline Indian FMCG Barcode Catalogue (500 SKUs):** Instant offline resolution for 500 top Indian household products (Amul, Britannia, Parle, Nestle, ITC, Tata, Haldiram's, Dabur, Mother Dairy, MDH).
-- **OpenFoodFacts GTIN Metadata Fallback:** Seamless API fallback with zero token leaks and a mandatory physical pack review gate (`ConfirmedLabel`).
-- **Append-Only Pantry Event Ledger:** Resilient event-sourcing design with vector clock conflict resolution and zero silent data merging (`MigrationPreviewDialog`).
-- **Multi-Tenant Household Sharing:** Family inventory collaboration powered by Clerk Organizations with tenant isolation verified by live SQL assertions.
-- **Web Push Notifications & In-App Expiry Reminders:** Configurable push subscriptions (`api/notifications/subscribe.js`) and in-app alerts with quiet hours protection.
-- **Cryptographic Clerk Webhooks (Step 5):** Svix HMAC-SHA256 authenticated webhook ingestion for `user.created`, `user.updated`, and `user.deleted` with idempotent deduplication.
+  - Real-time camera viewfinder with hardware controls (torch/flashlight, zoom slider, camera switcher, tap-to-focus).
+  - Universal 1D/2D barcode decoding powered by `@sec-ant/zxing-wasm` (EAN-13, EAN-8, UPC-A, UPC-E, QR Code, GS1 Digital Link) in $<100\text{ms}$.
+  - Background Web Worker OCR with adaptive binarization, CLAHE contrast enhancement, and noise filtering.
+- **Multi-Tier Product Resolution:**
+  - **Tier 1:** Curated offline Indian FMCG catalog (500+ top SKUs: Amul, Britannia, Parle, Nestle, Tata, Haldiram's, Dabur, Mother Dairy, MDH).
+  - **Tier 2:** Open Food Facts global open database with compliant ODbL attribution.
+  - **Tier 3:** Tavily AI Web Search for real-time verified Indian grocery product intelligence.
+- **Deterministic Food Safety & 0–100 Health Scoring:**
+  - Mathematical health score formula penalizing energy density, saturated fats, sugars, sodium, and ultra-processed INS additives.
+  - Fail-closed allergen matching against personal and household avoid-lists.
+  - Missing nutrients strictly preserved as `null` (never falsely assumed as 0).
+- **Append-Only Pantry Event Ledger:**
+  - Resilient event-sourcing design with vector clocks and deterministic Last-Write-Wins (LWW) conflict resolution.
+- **Multi-Tenant Household Sharing:**
+  - Family kitchen inventory collaboration powered by Clerk Organizations with row-level tenant isolation in Neon PostgreSQL.
+- **Web Push Notifications:**
+  - VAPID background notifications alerting users before perishable pantry food items expire.
 
 ---
 
-## 📁 Repository Structure
+## 📚 Canonical Documentation Index
 
-```
-FoodCue/
-├── api/                           # Vercel Serverless Endpoints (esbuild bundled)
-│   ├── devices/index.js           # Multi-device registration & heartbeat
-│   ├── notifications/subscribe.js # Web push subscription storage
-│   ├── sync/                      # Push, Pull, Migrate, Status, Delete endpoints
-│   ├── webhooks/clerk.js          # Svix verified Clerk webhook handler
-│   └── me.js                      # Authenticated user identity endpoint
-├── docs/                          # Cleaned Canonical Specifications & Architecture
-│   ├── archive/                   # Safely preserved historical steps & checklists
-│   ├── audit/                     # 10 Authoritative Audit & Release Deliverables
-│   │   ├── PROJECT_AUDIT_REPORT.md
-│   │   ├── DOCUMENT_AUTHORITY_REGISTER.md
-│   │   ├── PROJECT_STATUS.md
-│   │   ├── RELEASE_READINESS.md
-│   │   ├── REQUIREMENT_TRACEABILITY.md
-│   │   ├── CLEANUP_REPORT.md
-│   │   ├── TEST_EXECUTION_REPORT.md
-│   │   ├── DEPENDENCY_AUDIT.md
-│   │   └── REMAINING_WORK.md
-│   ├── integrations/openfoodfacts/# OpenFoodFacts fallback integration documentation
-│   ├── technical/                 # Deep architectural & hardware specifications
-│   ├── validation/                # Validation protocols & benchmark annotation guides
-│   ├── ARCHITECTURE.md            # Canonical system architecture
-│   ├── FOODCUE_DATABASE_SCHEMA.md # Canonical PostgreSQL schema
-│   └── schema.sql                 # Complete database schema
-├── public/                        # PWA assets, manifest, and service worker (`sw.js`)
-├── scripts/                       # Core build, migration, and generation scripts
-│   ├── bundle-api.mjs             # Esbuild bundler for Vercel functions
-│   ├── generate-fmcg-catalog.mjs  # FMCG catalog generator (500 SKUs)
-│   ├── migrate-neon.mjs           # Neon PostgreSQL migrator
-│   ├── run-migrations.mjs         # Migration runner
-│   └── verify-step5-webhooks.mjs  # Step 5 Clerk webhook verification tool
-├── src/                           # Frontend application & domain services
-│   ├── adapters/                  # Hardware, storage, OCR, notification adapters
-│   ├── app/                       # Application shell, router, providers
-│   ├── components/                # Reusable UI components & design system
-│   ├── domain/                    # Core business entities, contracts, rules, services
-│   ├── features/                  # User journeys (SmartScan, Pantry, Household, Sync, Auth)
-│   ├── integrations/              # Third-party API clients
-│   ├── server/                    # Backend services, DB client, Svix verification
-│   └── sync/                      # Offline sync engine, conflict resolver, queues
-├── test/                          # Comprehensive automated test suites (37 files, 213 tests)
-├── .env.example                   # Sanitized environment template
-├── package.json                   # Dependencies, engines, and scripts
-├── tsconfig.json                  # Strict TypeScript configuration
-└── vite.config.ts                 # Vite bundler configuration
+All project documentation is structured authoritatively in `docs/`:
+
+```text
+docs/
+├── product/
+│   ├── PRODUCT_REQUIREMENTS.md       # Full PRD, core principles & target audience
+│   ├── FEATURES_AND_USER_JOURNEYS.md # Complete user journeys (A–E) & route map
+│   └── PRODUCT_ROADMAP.md            # Milestones 1–5 history & release gate progression
+├── architecture/
+│   ├── SYSTEM_ARCHITECTURE.md        # Authoritative system blueprint & data flow
+│   ├── DATABASE_SCHEMA.md            # Client IndexedDB & Neon PostgreSQL (15 tables)
+│   └── TECHNICAL_DECISIONS.md        # Architecture Decision Records (ADRs)
+├── development/
+│   ├── PROJECT_SETUP.md              # Workstation setup & prerequisites
+│   ├── DEVELOPMENT_GUIDE.md          # Code standards, patterns & project structure
+│   ├── API_DOCUMENTATION.md          # Serverless endpoints reference & schemas
+│   └── ENVIRONMENT_VARIABLES.md      # Master configuration matrix & key reference
+├── security/
+│   ├── SECURITY_PRIVACY_AND_SAFETY.md # Zero image retention, OWASP & food safety
+│   └── AUTHENTICATION_AND_AUTHORIZATION.md # Clerk auth, roles & Svix webhooks
+├── integrations/
+│   └── EXTERNAL_INTEGRATIONS.md      # OpenFoodFacts, Tavily, Groq, OpenRouter & Push
+├── deployment/
+│   ├── PRODUCTION_DEPLOYMENT.md      # Vercel, Neon & Clerk deployment guide
+│   ├── OPERATIONS_AND_RECOVERY_GUIDE.md # Backup, PITR, rollback & incident SLAs
+│   └── OWNER_ACTION_CHECKLIST.md     # Personal action checklist for project owner
+├── testing/
+│   ├── TESTING_AND_QUALITY_ASSURANCE.md # Vitest test suites, benchmarks & WCAG 2.2 AA
+│   └── CLOSED_BETA_OPERATIONAL_PLAN.md  # 3-week 10–20 household beta kit & surveys
+└── archive/
+    ├── validation/                   # Historical Gate G1–G6 validation reports
+    └── phase-11/                     # Phase 11 baseline & launch readiness reports
 ```
 
 ---
@@ -92,60 +83,35 @@ FoodCue/
 All commands can be executed using standard `npm`:
 
 ```bash
-# Install dependencies
-npm install
+# 1. Install dependencies
+npm ci
 
-# Start local development server
+# 2. Start local development server
 npm run dev
 
-# Run strict TypeScript typecheck
+# 3. Typecheck TypeScript
 npm run typecheck
 
-# Run automated test suite (37 files, 213 tests)
+# 4. Lint codebase
+npm run lint
+
+# 5. Run all 43 automated test suites (240 tests)
 npm test
 
-# Build production bundle and serverless API endpoints
+# 6. Verify production build & bundle serverless functions
 npm run build
 
-# Run database migrations against Neon PostgreSQL
-npm run db:migrate
+# 7. Audit all external API keys live
+node --env-file=.env scripts/test-all-api-keys.mjs
 
-# Audit production dependencies for vulnerabilities
-npm run security:audit
+# 8. Run physical packaging benchmark CLI
+node scripts/benchmark-data-entry.mjs
 ```
 
 ---
 
-## 🔐 Environment Variables
+## ⚖️ License & Attribution
 
-Copy `.env.example` to `.env.local` for local development:
-
-```bash
-# Neon PostgreSQL Connection String (Required for Cloud Sync)
-DATABASE_URL=postgresql://user:password@ep-host.region.aws.neon.tech/neondb?sslmode=require
-
-# Clerk Authentication (Optional for Local Mode, Required for Accounts)
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
-CLERK_WEBHOOK_SECRET=whsec_...
-
-# Application Base URL
-VITE_APP_URL=http://localhost:5173
-```
-
----
-
-## 📊 Verification & Test Status
-
-- **Automated Tests:** **37 test files, 213 tests passing (100% pass rate).**
-- **Type Safety:** `tsc -b --pretty` compiles with zero warnings or errors.
-- **Production Bundle:** Vite transforms 2,212 modules; esbuild bundles 8 standalone serverless functions.
-- **Release Gate Status:** Classified as **`CLOSED BETA CANDIDATE`** (all code and infrastructure ready; field data collection underway).
-- **Audit Reports:** See [`docs/audit/PROJECT_STATUS.md`](file:///c:/Users/parth/OneDrive/Desktop/FoodCue/foodcue%20Code/docs/audit/PROJECT_STATUS.md) and [`docs/audit/REMAINING_WORK.md`](file:///c:/Users/parth/OneDrive/Desktop/FoodCue/foodcue%20Code/docs/audit/REMAINING_WORK.md) for complete details.
-
----
-
-## 📜 License & Disclaimers
-
-- **License:** MIT License. Developed by Parth Ahuja.
-- **Food Safety Disclaimer:** FoodCue is an informational decision-support tool. It does not replace professional medical or dietary advice. In accordance with our fail-closed safety invariant, "Unknown is never assumed safe."
+- **Dependencies & Licenses:** Detailed in [LICENSE-DEPENDENCIES.md](LICENSE-DEPENDENCIES.md).
+- **Product Data:** Open Food Facts data licensed under the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/).
+- **Contributions:** Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting pull requests.

@@ -66,7 +66,7 @@ const categories = [
 console.log("\nTarget Evaluation Categories:");
 categories.forEach((c) => console.log("  " + c));
 console.log("\nBenchmark storage directory: data/physical-packs/");
-console.log("Data schema template available in docs/validation/PACK_BENCHMARK_ANNOTATION_GUIDE.md\n");
+console.log("Data schema template available in docs/testing/TESTING_AND_QUALITY_ASSURANCE.md\n");
 
 // Export quick validation summary if records exist
 if (existing.length > 0) {
@@ -88,6 +88,6 @@ if (existing.length > 0) {
   console.log(`- Mean Word Error Rate (WER): ${(totalWer / existing.length).toFixed(3)}`);
 } else {
   console.log("No physical pack photo annotations recorded yet. Please capture packaging photos");
-  console.log("and record ground truth entries using the template defined in PHASE_11_REAL_WORLD_PACKAGING_VALIDATION.md.");
+  console.log("and record ground truth entries using the template defined in docs/testing/TESTING_AND_QUALITY_ASSURANCE.md.");
 }
 console.log("================================================================================\n");
