@@ -1,59 +1,50 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-  Show,
   SignInButton,
   SignUpButton,
   SignOutButton,
-  OrganizationSwitcher,
-  useUser,
-  useOrganization
+  useUser
 } from "@clerk/react";
 import { FoodCueLogo } from "../brand/FoodCueLogo";
 import type { ActiveTab } from "../../app/App";
-import { syncStatus } from "../../sync/state/syncStatus";
-import { syncCoordinator } from "../../sync/engine/syncCoordinator";
-import { MigrationWizard } from "../../features/sync/MigrationWizard";
 import {
   Home,
-  Search,
-  Sparkles,
   Refrigerator,
-  Bell,
+  Sparkles,
   ShoppingBag,
-  BookOpen,
+  Search,
+  Bell,
+  UserPlus,
   User,
+  Heart,
+  ShieldAlert,
+  Users,
   Shield,
+  LogOut,
+  ChevronDown,
   Menu,
   X,
-  ChevronDown,
-  Users,
-  LogOut,
-  LogIn,
-  UserPlus,
-  Cloud,
-  RefreshCw
+  LogIn
 } from "lucide-react";
 
 interface NavbarProps {
   activeTab: ActiveTab;
   onSelectTab: (tab: ActiveTab) => void;
-  syncActive?: boolean;
+  onOpenInviteModal?: () => void;
+  notificationCount?: number;
 }
 
-export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
+export const Navbar: React.FC<NavbarProps> = ({
+  activeTab,
+  onSelectTab,
+  onOpenInviteModal,
+  notificationCount = 0
+}) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [showMigrationWizard, setShowMigrationWizard] = useState(false);
-  const [syncState, setSyncState] = useState(syncStatus.getState());
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const { user } = useUser();
-  const { organization } = useOrganization();
-
-  useEffect(() => {
-    const unsub = syncStatus.subscribe((s) => setSyncState(s));
-    return () => unsub();
-  }, []);
+  const { isSignedIn, user } = useUser();
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -98,13 +89,14 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
     userDisplayName[0]?.toUpperCase() ||
     "U";
 
-  // Public Landing Page Navbar (Guest on Home Tab):
-  // Clean, minimal navbar with ONLY Logo on left, and Sign In & Sign Up on right.
-  const isPublicLanding = !user && activeTab === "home";
-
-  if (isPublicLanding) {
+  // =========================================================================
+  // 1. PUBLIC NAVBAR (When unauthenticated)
+  // Left: FoodCue logo + brand name
+  // Right: Sign In + Sign Up buttons ONLY. No application navigation!
+  // =========================================================================
+  if (!isSignedIn) {
     return (
-      <header className="navbar-header public-landing-header" role="banner">
+      <header className="navbar-header public-landing-header" role="banner" aria-label="Public navigation">
         <div className="navbar-container public-landing-navbar-container">
           {/* Left: Brand & Tagline */}
           <a
@@ -152,29 +144,49 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
     );
   }
 
+  // =========================================================================
+  // 2. AUTHENTICATED NAVBAR (When logged in)
+  // Left: FoodCue logo + brand name
+  // Center: Home | My Kitchen | Scan | Shopping List | Explore
+  // Right: Notifications | Invite | Profile (Exact mandatory order!)
+  // =========================================================================
   return (
     <>
-      <header className="navbar-header" role="banner">
-        <div className="navbar-container">
-          {/* Left: Brand & Tagline */}
-          <a
-            className="navbar-brand"
-            href="/"
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick("home");
-            }}
-            aria-label="FoodCue Home — Return to Dashboard"
-          >
-            <FoodCueLogo size={36} />
-            <div className="brand-text-block">
-              <span className="brand-name">FoodCue</span>
-              <span className="brand-tagline">Know your food. Manage your kitchen.</span>
-            </div>
-          </a>
+      <header className="navbar-header authenticated-app-header" role="banner" aria-label="Application navigation">
+        <div className="navbar-container authenticated-navbar-container">
+          {/* Left: Brand & Logo */}
+          <div className="navbar-left-brand-row">
+            {/* Mobile Hamburger Toggle */}
+            <button
+              type="button"
+              className="navbar-mobile-toggle-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
 
-          {/* Center: Main Navigation Links */}
-          <nav className="navbar-center-nav" aria-label="Main application navigation">
+            <a
+              className="navbar-brand"
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                handleTabClick("home");
+              }}
+              aria-label="FoodCue — Return to Home Dashboard"
+            >
+              <FoodCueLogo size={36} />
+              <div className="brand-text-block">
+                <span className="brand-name">FoodCue</span>
+                <span className="brand-tagline">Know your food. Manage your kitchen.</span>
+              </div>
+            </a>
+          </div>
+
+          {/* Center: Main Application Navigation Destinations */}
+          <nav className="navbar-center-nav" aria-label="Main application destinations">
+            {/* 1. Home / Dashboard */}
             <button
               type="button"
               className={`nav-link-btn ${activeTab === "home" ? "active" : ""}`}
@@ -182,29 +194,10 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
               aria-current={activeTab === "home" ? "page" : undefined}
             >
               <Home className="nav-icon" aria-hidden="true" />
-              <span>{user ? "Dashboard" : "Home"}</span>
+              <span>Home</span>
             </button>
 
-            <button
-              type="button"
-              className={`nav-link-btn ${activeTab === "scan" ? "active" : ""}`}
-              onClick={() => handleTabClick("scan")}
-              aria-current={activeTab === "scan" ? "page" : undefined}
-            >
-              <Sparkles className="nav-icon" aria-hidden="true" />
-              <span>SmartScan</span>
-            </button>
-
-            <button
-              type="button"
-              className={`nav-link-btn ${activeTab === "search" ? "active" : ""}`}
-              onClick={() => handleTabClick("search")}
-              aria-current={activeTab === "search" ? "page" : undefined}
-            >
-              <Search className="nav-icon" aria-hidden="true" />
-              <span>Search</span>
-            </button>
-
+            {/* 2. My Kitchen */}
             <button
               type="button"
               className={`nav-link-btn ${activeTab === "kitchen" ? "active" : ""}`}
@@ -215,16 +208,18 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
               <span>My Kitchen</span>
             </button>
 
+            {/* 3. Scan */}
             <button
               type="button"
-              className={`nav-link-btn ${activeTab === "reminders" ? "active" : ""}`}
-              onClick={() => handleTabClick("reminders")}
-              aria-current={activeTab === "reminders" ? "page" : undefined}
+              className={`nav-link-btn ${activeTab === "scan" ? "active" : ""}`}
+              onClick={() => handleTabClick("scan")}
+              aria-current={activeTab === "scan" ? "page" : undefined}
             >
-              <Bell className="nav-icon" aria-hidden="true" />
-              <span>Reminders</span>
+              <Sparkles className="nav-icon" aria-hidden="true" />
+              <span>Scan</span>
             </button>
 
+            {/* 4. Shopping List */}
             <button
               type="button"
               className={`nav-link-btn ${activeTab === "shopping" ? "active" : ""}`}
@@ -235,468 +230,272 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
               <span>Shopping List</span>
             </button>
 
+            {/* 5. Explore */}
             <button
               type="button"
-              className={`nav-link-btn ${activeTab === "catalog" ? "active" : ""}`}
-              onClick={() => handleTabClick("catalog")}
-              aria-current={activeTab === "catalog" ? "page" : undefined}
+              className={`nav-link-btn ${activeTab === "search" || activeTab === "catalog" ? "active" : ""}`}
+              onClick={() => handleTabClick("search")}
+              aria-current={activeTab === "search" || activeTab === "catalog" ? "page" : undefined}
             >
-              <BookOpen className="nav-icon" aria-hidden="true" />
-              <span>Catalogue</span>
+              <Search className="nav-icon" aria-hidden="true" />
+              <span>Explore</span>
             </button>
           </nav>
 
-          {/* Right: Account, Status & Privacy Controls */}
-          <div className="navbar-right-actions">
-            {/* Storage / Cloud Sync Status Indicator — Links to Privacy & Cloud (Section 20) */}
-            {syncState.isCloudEnabled ? (
-              <button
-                type="button"
-                className={`sync-status-badge ${syncStatus.getConsumerLabel().variant}`}
-                onClick={() => handleTabClick("privacy")}
-                title={`${syncStatus.getConsumerLabel().text} — Click to view Privacy & Cloud`}
-                aria-label={`Sync Status: ${syncStatus.getConsumerLabel().text}. Open Privacy & Cloud`}
-              >
-                <span className={`sync-status-dot ${syncStatus.getConsumerLabel().variant}`} aria-hidden="true" />
-                <span className="sync-status-text">{syncStatus.getConsumerLabel().text}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="local-status-badge"
-                onClick={() => handleTabClick("privacy")}
-                title="Stored on this device — Click to view Privacy & Cloud"
-                aria-label="Storage Status: Stored on this device. Open Privacy & Cloud"
-              >
-                <span className="local-status-dot" aria-hidden="true" />
-                <span className="local-status-text">Stored on this device</span>
-              </button>
-            )}
-
-            {/* Privacy Shortcut */}
+          {/* Right: Mandatory arrangement: Notifications | Invite | Profile */}
+          <div className="navbar-right-actions" aria-label="User actions">
+            {/* 1. Notifications Button */}
             <button
               type="button"
-              className={`navbar-privacy-btn ${activeTab === "privacy" ? "active" : ""}`}
-              onClick={() => handleTabClick("privacy")}
-              title="Privacy Policy and Local Data Controls"
-              aria-label="Privacy and Local Data Controls"
+              className={`navbar-action-btn ${activeTab === "reminders" ? "active" : ""}`}
+              onClick={() => handleTabClick("reminders")}
+              aria-label={`Notifications and Expiry Reminders ${notificationCount > 0 ? `(${notificationCount} urgent)` : ""}`}
+              title="Notifications & Expiry Reminders"
             >
-              <Shield className="privacy-btn-icon" aria-hidden="true" />
-              <span className="privacy-btn-text">Privacy</span>
-            </button>
-
-            {/* Authentication Controls */}
-            <div className="navbar-auth-controls">
-              {/* Signed Out View: Sign In & Sign Up */}
-              <Show when="signed-out">
-                <div className="signed-out-actions">
-                  <SignInButton mode="modal">
-                    <button type="button" className="btn-auth-signin">
-                      <LogIn className="auth-btn-icon" aria-hidden="true" />
-                      <span>Sign In</span>
-                    </button>
-                  </SignInButton>
-
-                  <SignUpButton mode="modal">
-                    <button type="button" className="btn-auth-signup">
-                      <UserPlus className="auth-btn-icon" aria-hidden="true" />
-                      <span>Sign Up</span>
-                    </button>
-                  </SignUpButton>
-                </div>
-              </Show>
-
-              {/* Signed In View: Household Organization & Profile Dropdown */}
-              <Show when="signed-in">
-                <div className="signed-in-actions">
-                  {/* Household Organization Switcher */}
-                  <div className="navbar-org-switcher" title="Switch Household / Personal Pantry">
-                    <OrganizationSwitcher hidePersonal={false} />
-                  </div>
-
-                  {/* Profile Dropdown Trigger */}
-                  <div className="profile-dropdown-container" ref={dropdownRef}>
-                    <button
-                      type="button"
-                      className={`profile-avatar-trigger ${profileDropdownOpen ? "open" : ""}`}
-                      onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                      aria-expanded={profileDropdownOpen}
-                      aria-haspopup="menu"
-                      aria-label="User Account Menu"
-                    >
-                      {user?.imageUrl ? (
-                        <img
-                          src={user.imageUrl}
-                          alt={userDisplayName}
-                          className="user-avatar-image"
-                        />
-                      ) : (
-                        <div className="user-avatar-initials" aria-hidden="true">
-                          {userInitials}
-                        </div>
-                      )}
-                      <span className="user-display-name-short">{userDisplayName}</span>
-                      <ChevronDown className="avatar-dropdown-chevron" aria-hidden="true" />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {profileDropdownOpen && (
-                      <div className="profile-dropdown-menu" role="menu">
-                        <div className="dropdown-user-header">
-                          <div className="dropdown-avatar-large">
-                            {user?.imageUrl ? (
-                              <img src={user.imageUrl} alt="" className="user-avatar-image" />
-                            ) : (
-                              <div className="user-avatar-initials">{userInitials}</div>
-                            )}
-                          </div>
-                          <div className="dropdown-user-info">
-                            <span className="dropdown-user-name">{userDisplayName}</span>
-                            {userEmail && <span className="dropdown-user-email">{userEmail}</span>}
-                            {organization && (
-                              <span className="dropdown-household-badge">
-                                <Users className="badge-icon-xs" />
-                                {organization.name}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="dropdown-divider" role="separator" />
-
-                        <div className="dropdown-menu-items">
-                          <button
-                            type="button"
-                            className="dropdown-item-btn"
-                            role="menuitem"
-                            onClick={() => handleTabClick("profile")}
-                          >
-                            <User className="dropdown-item-icon" />
-                            <span>My Profile & Preferences</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            className="dropdown-item-btn"
-                            role="menuitem"
-                            onClick={() => handleTabClick("household")}
-                          >
-                            <Users className="dropdown-item-icon text-indigo-600" />
-                            <span>Household Management & Sharing</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            className="dropdown-item-btn"
-                            role="menuitem"
-                            onClick={() => handleTabClick("privacy")}
-                          >
-                            <Shield className="dropdown-item-icon" />
-                            <span>Privacy & Local Data</span>
-                          </button>
-
-                          {syncState.isCloudEnabled ? (
-                            <button
-                              type="button"
-                              className="dropdown-item-btn"
-                              role="menuitem"
-                              onClick={() => {
-                                setProfileDropdownOpen(false);
-                                syncCoordinator.triggerSync();
-                              }}
-                            >
-                              <RefreshCw className="dropdown-item-icon text-brand" />
-                              <span>Sync Kitchen Now</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="dropdown-item-btn"
-                              role="menuitem"
-                              onClick={() => {
-                                setProfileDropdownOpen(false);
-                                setShowMigrationWizard(true);
-                              }}
-                            >
-                              <Cloud className="dropdown-item-icon text-brand" />
-                              <span>Connect Kitchen to Cloud</span>
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="dropdown-divider" role="separator" />
-
-                        <div className="dropdown-footer">
-                          <SignOutButton>
-                            <button type="button" className="dropdown-signout-btn" role="menuitem">
-                              <LogOut className="dropdown-item-icon text-danger" />
-                              <span>Sign Out</span>
-                            </button>
-                          </SignOutButton>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Show>
-            </div>
-
-            {/* Mobile Hamburger Menu Toggle */}
-            <button
-              type="button"
-              className="navbar-mobile-toggle"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? (
-                <X className="mobile-toggle-icon" />
-              ) : (
-                <Menu className="mobile-toggle-icon" />
+              <Bell className="nav-action-icon" aria-hidden="true" />
+              {notificationCount > 0 && (
+                <span className="navbar-notification-badge" aria-hidden="true">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
               )}
             </button>
-          </div>
-        </div>
 
-        {/* Mobile Navigation Drawer */}
-        {mobileMenuOpen && (
-          <div className="mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
-            <div
-              className="mobile-drawer-content"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Mobile Navigation"
+            {/* 2. Invite Button (Immediately next to Profile!) */}
+            <button
+              type="button"
+              className="navbar-invite-btn"
+              onClick={onOpenInviteModal}
+              aria-label="Invite Family & Friends to Household"
+              title="Invite Family & Friends"
             >
-              <div className="mobile-drawer-header">
-                <FoodCueLogo size={32} showText />
-                <button
-                  type="button"
-                  className="mobile-drawer-close"
-                  onClick={() => setMobileMenuOpen(false)}
-                  aria-label="Close menu"
-                >
-                  <X className="close-icon" />
-                </button>
-              </div>
+              <UserPlus className="invite-btn-icon" aria-hidden="true" />
+              <span className="invite-btn-label">Invite</span>
+            </button>
 
-              {/* Mobile Auth Bar */}
-              <div className="mobile-auth-section">
-                <Show when="signed-out">
-                  <div className="mobile-auth-grid">
-                    <SignInButton mode="modal">
-                      <button
-                        type="button"
-                        className="mobile-btn-signin"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        <LogIn className="auth-btn-icon" />
-                        <span>Sign In</span>
-                      </button>
-                    </SignInButton>
-                    <SignUpButton mode="modal">
-                      <button
-                        type="button"
-                        className="mobile-btn-signup"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        <UserPlus className="auth-btn-icon" />
-                        <span>Sign Up</span>
-                      </button>
-                    </SignUpButton>
+            {/* 3. Profile Button & Dropdown */}
+            <div className="profile-dropdown-container" ref={dropdownRef}>
+              <button
+                type="button"
+                className={`profile-avatar-trigger ${profileDropdownOpen ? "open" : ""} ${activeTab === "profile" ? "active-route" : ""}`}
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                aria-expanded={profileDropdownOpen}
+                aria-haspopup="menu"
+                aria-label="User Account and Profile Menu"
+              >
+                {user?.imageUrl ? (
+                  <img
+                    src={user.imageUrl}
+                    alt={userDisplayName}
+                    className="user-avatar-image"
+                  />
+                ) : (
+                  <div className="user-avatar-initials" aria-hidden="true">
+                    {userInitials}
                   </div>
-                </Show>
+                )}
+                <span className="user-display-name-short">{userDisplayName}</span>
+                <ChevronDown className="avatar-dropdown-chevron" aria-hidden="true" />
+              </button>
 
-                <Show when="signed-in">
-                  <div className="mobile-user-card">
-                    <div className="mobile-user-avatar">
+              {/* Profile Dropdown Menu */}
+              {profileDropdownOpen && (
+                <div className="profile-dropdown-menu" role="menu" aria-label="Profile navigation options">
+                  <div className="dropdown-user-header">
+                    <div className="dropdown-avatar-large">
                       {user?.imageUrl ? (
                         <img src={user.imageUrl} alt="" className="user-avatar-image" />
                       ) : (
                         <div className="user-avatar-initials">{userInitials}</div>
                       )}
                     </div>
-                    <div className="mobile-user-meta">
-                      <span className="mobile-user-name">{userDisplayName}</span>
-                      {userEmail && <span className="mobile-user-email">{userEmail}</span>}
+                    <div className="dropdown-user-info">
+                      <strong className="user-name-text">{userDisplayName}</strong>
+                      <span className="user-email-text">{userEmail}</span>
+                      <span className="user-badge-role">Personal Profile</span>
                     </div>
                   </div>
-                </Show>
-              </div>
 
-              {/* Mobile Nav Links */}
-              <div className="mobile-nav-links">
-                <button
-                  type="button"
-                  className={`mobile-nav-item ${activeTab === "home" ? "active" : ""}`}
-                  onClick={() => handleTabClick("home")}
-                >
-                  <Home className="mobile-item-icon" />
-                  <span>{user ? "Dashboard" : "Home"}</span>
-                </button>
+                  <div className="dropdown-divider" />
 
-                <button
-                  type="button"
-                  className={`mobile-nav-item ${activeTab === "scan" ? "active" : ""}`}
-                  onClick={() => handleTabClick("scan")}
-                >
-                  <Sparkles className="mobile-item-icon" />
-                  <span>SmartScan</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`mobile-nav-item ${activeTab === "search" ? "active" : ""}`}
-                  onClick={() => handleTabClick("search")}
-                >
-                  <Search className="mobile-item-icon" />
-                  <span>Search Products</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`mobile-nav-item ${activeTab === "kitchen" ? "active" : ""}`}
-                  onClick={() => handleTabClick("kitchen")}
-                >
-                  <Refrigerator className="mobile-item-icon" />
-                  <span>My Kitchen</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`mobile-nav-item ${activeTab === "reminders" ? "active" : ""}`}
-                  onClick={() => handleTabClick("reminders")}
-                >
-                  <Bell className="mobile-item-icon" />
-                  <span>Reminders</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`mobile-nav-item ${activeTab === "shopping" ? "active" : ""}`}
-                  onClick={() => handleTabClick("shopping")}
-                >
-                  <ShoppingBag className="mobile-item-icon" />
-                  <span>Shopping List</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`mobile-nav-item ${activeTab === "catalog" ? "active" : ""}`}
-                  onClick={() => handleTabClick("catalog")}
-                >
-                  <BookOpen className="mobile-item-icon" />
-                  <span>Catalogue</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`mobile-nav-item ${activeTab === "privacy" ? "active" : ""}`}
-                  onClick={() => handleTabClick("privacy")}
-                >
-                  <Shield className="mobile-item-icon" />
-                  <span>Privacy & Local Data</span>
-                </button>
-
-                <Show when="signed-in">
+                  {/* 1. My Profile */}
                   <button
                     type="button"
-                    className={`mobile-nav-item ${activeTab === "profile" ? "active" : ""}`}
+                    className="dropdown-menu-item"
+                    role="menuitem"
                     onClick={() => handleTabClick("profile")}
                   >
-                    <User className="mobile-item-icon" />
-                    <span>My Profile & Preferences</span>
+                    <User className="menu-item-icon text-brand-green" aria-hidden="true" />
+                    <span>My Profile</span>
                   </button>
 
+                  {/* 2. Food Preferences */}
                   <button
                     type="button"
-                    className={`mobile-nav-item ${activeTab === "household" ? "active" : ""}`}
+                    className="dropdown-menu-item"
+                    role="menuitem"
+                    onClick={() => handleTabClick("profile")}
+                  >
+                    <Heart className="menu-item-icon text-rose-500" aria-hidden="true" />
+                    <span>Food Preferences</span>
+                  </button>
+
+                  {/* 3. Allergies & Restrictions */}
+                  <button
+                    type="button"
+                    className="dropdown-menu-item"
+                    role="menuitem"
+                    onClick={() => handleTabClick("profile")}
+                  >
+                    <ShieldAlert className="menu-item-icon text-amber-500" aria-hidden="true" />
+                    <span>Allergies & Restrictions</span>
+                  </button>
+
+                  {/* 4. Household Management */}
+                  <button
+                    type="button"
+                    className="dropdown-menu-item"
+                    role="menuitem"
                     onClick={() => handleTabClick("household")}
                   >
-                    <Users className="mobile-item-icon text-indigo-600" />
+                    <Users className="menu-item-icon text-indigo-500" aria-hidden="true" />
                     <span>Household Management</span>
                   </button>
 
-                  <div className="mobile-signout-wrapper">
-                    <SignOutButton>
-                      <button
-                        type="button"
-                        className="mobile-signout-btn"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        <LogOut className="mobile-item-icon text-danger" />
-                        <span>Sign Out</span>
-                      </button>
-                    </SignOutButton>
-                  </div>
-                </Show>
-              </div>
+                  {/* 5. Privacy & Local Storage */}
+                  <button
+                    type="button"
+                    className="dropdown-menu-item"
+                    role="menuitem"
+                    onClick={() => handleTabClick("privacy")}
+                  >
+                    <Shield className="menu-item-icon text-slate-500" aria-hidden="true" />
+                    <span>Privacy & Data Controls</span>
+                  </button>
 
-              {/* Mobile Drawer Footer */}
-              <div className="mobile-drawer-footer">
-                <span className="drawer-footer-text">
-                  FoodCue is 100% local-first and private by default.
-                </span>
-              </div>
+                  <div className="dropdown-divider" />
+
+                  {/* 6. Sign Out */}
+                  <SignOutButton>
+                    <button
+                      type="button"
+                      className="dropdown-menu-item sign-out-item"
+                      role="menuitem"
+                    >
+                      <LogOut className="menu-item-icon text-danger" aria-hidden="true" />
+                      <span>Sign Out</span>
+                    </button>
+                  </SignOutButton>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="navbar-mobile-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation Menu">
+            <div className="mobile-drawer-header">
+              <span className="mobile-drawer-title">Navigation</span>
+              <button
+                type="button"
+                className="mobile-drawer-close"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close navigation"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="mobile-drawer-nav">
+              <button
+                type="button"
+                className={`mobile-nav-link ${activeTab === "home" ? "active" : ""}`}
+                onClick={() => handleTabClick("home")}
+              >
+                <Home className="nav-icon" />
+                <span>Home Dashboard</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mobile-nav-link ${activeTab === "kitchen" ? "active" : ""}`}
+                onClick={() => handleTabClick("kitchen")}
+              >
+                <Refrigerator className="nav-icon" />
+                <span>My Kitchen</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mobile-nav-link ${activeTab === "scan" ? "active" : ""}`}
+                onClick={() => handleTabClick("scan")}
+              >
+                <Sparkles className="nav-icon" />
+                <span>SmartScan Barcodes</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mobile-nav-link ${activeTab === "shopping" ? "active" : ""}`}
+                onClick={() => handleTabClick("shopping")}
+              >
+                <ShoppingBag className="nav-icon" />
+                <span>Shopping List</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mobile-nav-link ${activeTab === "search" || activeTab === "catalog" ? "active" : ""}`}
+                onClick={() => handleTabClick("search")}
+              >
+                <Search className="nav-icon" />
+                <span>Explore Products</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mobile-nav-link ${activeTab === "reminders" ? "active" : ""}`}
+                onClick={() => handleTabClick("reminders")}
+              >
+                <Bell className="nav-icon" />
+                <span>Notifications & Reminders</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mobile-nav-link ${activeTab === "profile" ? "active" : ""}`}
+                onClick={() => handleTabClick("profile")}
+              >
+                <User className="nav-icon" />
+                <span>Personal Profile</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mobile-nav-link ${activeTab === "household" ? "active" : ""}`}
+                onClick={() => handleTabClick("household")}
+              >
+                <Users className="nav-icon" />
+                <span>Household Management</span>
+              </button>
+            </nav>
+
+            <div className="mobile-drawer-footer">
+              <button
+                type="button"
+                className="mobile-drawer-invite-btn"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onOpenInviteModal) onOpenInviteModal();
+                }}
+              >
+                <UserPlus className="btn-icon" />
+                <span>Invite Family & Friends</span>
+              </button>
             </div>
           </div>
         )}
       </header>
-
-      {/* Mobile Bottom Navigation Bar (SmartScan, Kitchen, Reminders, Shopping, More) */}
-      <nav className="mobile-bottom-bar" aria-label="Quick mobile navigation">
-        <button
-          type="button"
-          className={`bottom-bar-btn ${activeTab === "scan" ? "active" : ""}`}
-          onClick={() => handleTabClick("scan")}
-        >
-          <Sparkles className="bottom-bar-icon" />
-          <span>Scan</span>
-        </button>
-
-        <button
-          type="button"
-          className={`bottom-bar-btn ${activeTab === "kitchen" ? "active" : ""}`}
-          onClick={() => handleTabClick("kitchen")}
-        >
-          <Refrigerator className="bottom-bar-icon" />
-          <span>Kitchen</span>
-        </button>
-
-        <button
-          type="button"
-          className={`bottom-bar-btn ${activeTab === "reminders" ? "active" : ""}`}
-          onClick={() => handleTabClick("reminders")}
-        >
-          <Bell className="bottom-bar-icon" />
-          <span>Remind</span>
-        </button>
-
-        <button
-          type="button"
-          className={`bottom-bar-btn ${activeTab === "shopping" ? "active" : ""}`}
-          onClick={() => handleTabClick("shopping")}
-        >
-          <ShoppingBag className="bottom-bar-icon" />
-          <span>Shop</span>
-        </button>
-
-        <button
-          type="button"
-          className={`bottom-bar-btn ${activeTab === "privacy" || activeTab === "profile" || activeTab === "catalog" ? "active" : ""}`}
-          onClick={() => setMobileMenuOpen(true)}
-        >
-          <Menu className="bottom-bar-icon" />
-          <span>More</span>
-        </button>
-      </nav>
-
-      {/* Migration Wizard Modal */}
-      <MigrationWizard
-        isOpen={showMigrationWizard}
-        onClose={() => setShowMigrationWizard(false)}
-        onComplete={() => setShowMigrationWizard(false)}
-      />
     </>
   );
-}
+};

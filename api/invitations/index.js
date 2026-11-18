@@ -4945,8 +4945,8 @@ async function handler(req, res) {
     const clerkUserId = userContext.clerkUserId;
     if (method === "POST") {
       const body = await json() ?? {};
-      if (!body.householdId || !body.email || !body.email.trim()) {
-        throw new ValidationError("householdId and email are required.");
+      if (!body.householdId) {
+        throw new ValidationError("householdId is required.");
       }
       const callerRole = await householdRepository.getMemberRole(body.householdId, clerkUserId);
       if (callerRole !== "owner" && callerRole !== "admin") {
@@ -4954,10 +4954,11 @@ async function handler(req, res) {
       }
       const rawToken = crypto.randomBytes(32).toString("hex");
       const tokenHash = hashInvitationToken(rawToken);
+      const emailToUse = body.email && body.email.trim() ? body.email.trim().toLowerCase() : "link-share@foodcue.app";
       const invitation = await householdRepository.createInvitation({
         householdId: body.householdId,
         invitedByClerkUserId: clerkUserId,
-        inviteeEmail: body.email.trim().toLowerCase(),
+        inviteeEmail: emailToUse,
         tokenHash,
         role: body.role || "member",
         expiresInDays: 7

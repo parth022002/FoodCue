@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Camera,
   Search,
@@ -15,26 +15,37 @@ import {
   UserPlus,
   Shield,
   Clock,
-  Check
+  Layers,
+  Flame,
+  AlertTriangle,
+  Sliders
 } from "lucide-react";
 import { SignInButton, SignUpButton } from "@clerk/react";
 
 interface GuestHomeProps {
-  onOpenScan: () => void;
-  onOpenSearch?: () => void;
-  onRequireAuthPrompt?: () => void;
+  onRequireAuthPrompt?: (featureName?: string) => void;
 }
 
 type PreviewTab = "scan" | "nutrition" | "kitchen" | "shopping";
 
-export function GuestHome({
-  onOpenScan
-}: GuestHomeProps) {
+export const GuestHome: React.FC<GuestHomeProps> = ({
+  onRequireAuthPrompt
+}) => {
   const [activePreviewTab, setActivePreviewTab] = useState<PreviewTab>("scan");
+
+  function handleFeatureClick(featureName: string) {
+    if (onRequireAuthPrompt) {
+      onRequireAuthPrompt(featureName);
+    }
+  }
 
   return (
     <div className="landing-page-root">
-      {/* 1. HERO SECTION */}
+      {/* =====================================================================
+          1. HERO SECTION
+          Headline: Know Your Food. Manage Your Kitchen.
+          Actions: Get Started (Sign Up) & Sign In. Authentic preview card.
+      ===================================================================== */}
       <section className="landing-hero-section" aria-labelledby="landing-hero-title">
         <div className="landing-hero-inner">
           <div className="hero-text-column">
@@ -44,18 +55,14 @@ export function GuestHome({
             </div>
 
             <h1 id="landing-hero-title" className="hero-headline">
-              Know What You Eat.<br />
-              <span className="hero-headline-accent">Make Better Choices.</span>
+              Know Your Food.<br />
+              <span className="hero-headline-accent">Manage Your Kitchen.</span>
             </h1>
 
-            <p className="hero-subheadline-tagline">
-              Know your food. Manage your kitchen with FoodCue.
-            </p>
-
             <p className="hero-description">
-              FoodCue helps you understand the food you bring home, track your kitchen inventory,
-              monitor expiry dates, explore nutritional information, and manage your household
-              food essentials — all in one connected, privacy-first platform.
+              Discover food products, understand available nutrition and ingredient information,
+              organize your kitchen inventory, track expiry dates, and manage your household food
+              essentials with FoodCue.
             </p>
 
             {/* Primary Conversion Actions: Sign Up & Sign In */}
@@ -81,19 +88,9 @@ export function GuestHome({
                   <span>Sign In</span>
                 </button>
               </SignInButton>
-
-              <button
-                type="button"
-                className="hero-tertiary-scan-btn"
-                onClick={onOpenScan}
-                aria-label="Scan a Food Product"
-              >
-                <Camera className="cta-icon" aria-hidden="true" />
-                <span>Scan a Food Product</span>
-              </button>
             </div>
 
-            {/* Trust Badges (No age-range references) */}
+            {/* Trust Badges */}
             <div className="hero-trust-row" aria-label="Product guarantees">
               <span className="trust-indicator">
                 <ShieldCheck className="trust-icon text-success" aria-hidden="true" />
@@ -101,7 +98,7 @@ export function GuestHome({
               </span>
               <span className="trust-indicator">
                 <CheckCircle2 className="trust-icon text-success" aria-hidden="true" />
-                <span>No Mandatory Account to Scan</span>
+                <span>Zero Camera Stream Storage</span>
               </span>
               <span className="trust-indicator">
                 <HeartPulse className="trust-icon text-success" aria-hidden="true" />
@@ -171,17 +168,20 @@ export function GuestHome({
         </div>
       </section>
 
-      {/* 2. PRODUCT INTRODUCTION SECTION */}
+      {/* =====================================================================
+          2. PRODUCT INTRODUCTION SECTION
+          Explains what FoodCue does and everyday problems it helps users manage.
+      ===================================================================== */}
       <section className="landing-intro-section" aria-labelledby="intro-heading">
         <div className="section-container">
           <div className="section-header-block">
             <p className="section-eyebrow">A SMARTER WAY FORWARD</p>
             <h2 id="intro-heading" className="section-heading">
-              A Smarter Way to Understand and Manage Your Food
+              A Connected Way to Understand and Manage Your Food
             </h2>
             <p className="section-lead-text">
-              FoodCue brings food discovery, product information, nutrition insights,
-              expiry tracking, and kitchen inventory management together in one connected experience.
+              FoodCue brings food product discovery, ingredient transparency, nutrition insights,
+              expiry monitoring, and household kitchen management together in one intuitive platform.
             </p>
           </div>
 
@@ -190,10 +190,10 @@ export function GuestHome({
               <div className="pillar-icon-wrapper bg-green-tint">
                 <HeartPulse className="pillar-icon text-brand-green" aria-hidden="true" />
               </div>
-              <h3 className="pillar-title">Clear Nutritional Truth</h3>
+              <h3 className="pillar-title">Clear Nutritional Transparency</h3>
               <p className="pillar-description">
                 Cut through confusing front-of-pack claims and microscopic ingredient lists.
-                See clear energy densities, sugars, and transparent 0–100 health ratings.
+                Understand energy densities, added sugars, harmful additives, and transparent 0–100 health ratings.
               </p>
             </div>
 
@@ -201,7 +201,7 @@ export function GuestHome({
               <div className="pillar-icon-wrapper bg-blue-tint">
                 <Refrigerator className="pillar-icon text-info" aria-hidden="true" />
               </div>
-              <h3 className="pillar-title">Organized Kitchen Stock</h3>
+              <h3 className="pillar-title">Organized Kitchen Inventory</h3>
               <p className="pillar-description">
                 Always know what is currently stocked in your refrigerator, pantry, and freezer
                 before making unnecessary duplicate purchases at the supermarket.
@@ -222,13 +222,15 @@ export function GuestHome({
         </div>
       </section>
 
-      {/* 3. KEY FEATURES SECTION (8 Implemented Capabilities) */}
+      {/* =====================================================================
+          3. KEY FEATURES SECTION (11 Actual Implemented Capabilities)
+      ===================================================================== */}
       <section className="landing-features-section" aria-labelledby="features-heading">
         <div className="section-container">
           <div className="section-header-block">
-            <p className="section-eyebrow">BUILT FOR EVERYDAY LIFE</p>
+            <p className="section-eyebrow">COMPREHENSIVE CAPABILITIES</p>
             <h2 id="features-heading" className="section-heading">
-              Complete Food & Kitchen Capabilities
+              Built for Real Kitchens & Real Families
             </h2>
             <p className="section-lead-text">
               Thoughtfully engineered tools designed to make food label understanding and household pantry management effortless.
@@ -236,105 +238,141 @@ export function GuestHome({
           </div>
 
           <div className="features-grid">
-            {/* Feature 1 */}
-            <div className="feature-card">
+            {/* 1. Smart Food Scanning */}
+            <div className="feature-card" onClick={() => handleFeatureClick("SmartScan")}>
               <div className="feature-icon-box">
-                <Sparkles className="feature-icon text-brand-green" aria-hidden="true" />
+                <Camera className="feature-icon text-brand-green" aria-hidden="true" />
               </div>
               <h3 className="feature-card-title">Smart Food Scanning</h3>
               <p className="feature-card-text">
-                Scan barcodes in under 100ms with your smartphone camera, supported by live hardware zoom, flashlight torch, and camera switching.
+                Scan barcodes in under 100ms with your device camera, supported by live hardware zoom, flashlight torch, and camera switching.
               </p>
             </div>
 
-            {/* Feature 2 */}
-            <div className="feature-card">
+            {/* 2. Product Discovery */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Product Discovery")}>
               <div className="feature-icon-box">
                 <Search className="feature-icon text-brand-green" aria-hidden="true" />
               </div>
               <h3 className="feature-card-title">Product Discovery</h3>
               <p className="feature-card-text">
-                Explore a verified offline database of 500+ Indian FMCG products or search live global food databases for instant product intelligence.
+                Search verified offline FMCG products or query live international food repositories for instant product intelligence.
               </p>
             </div>
 
-            {/* Feature 3 */}
-            <div className="feature-card">
+            {/* 3. Nutrition Information */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Nutrition Insights")}>
               <div className="feature-icon-box">
-                <HeartPulse className="feature-icon text-brand-green" aria-hidden="true" />
+                <Flame className="feature-icon text-brand-green" aria-hidden="true" />
               </div>
-              <h3 className="feature-card-title">Nutrition Insights</h3>
+              <h3 className="feature-card-title">Nutrition Information</h3>
               <p className="feature-card-text">
-                Understand calories, added sugars, saturated fats, sodium, and dietary fiber through an objective, deterministic 0–100 health scoring engine.
+                Explore calories, added sugars, saturated fats, sodium, and dietary fiber through an objective, deterministic 0–100 health scoring engine.
               </p>
             </div>
 
-            {/* Feature 4 */}
-            <div className="feature-card">
+            {/* 4. Ingredient Analysis */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Ingredient Analysis")}>
               <div className="feature-icon-box">
-                <ShieldCheck className="feature-icon text-brand-green" aria-hidden="true" />
+                <Layers className="feature-icon text-brand-green" aria-hidden="true" />
               </div>
-              <h3 className="feature-card-title">Ingredient & Allergen Clarity</h3>
+              <h3 className="feature-card-title">Ingredient Analysis</h3>
               <p className="feature-card-text">
-                Inspect ingredient statements and receive fail-closed alert banners whenever a product conflicts with your personal or family avoid-list.
+                Unpack complex ingredient statements, identify food additives and INS codes, and evaluate processed vs. whole food components.
               </p>
             </div>
 
-            {/* Feature 5 */}
-            <div className="feature-card">
+            {/* 5. Food Preferences */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Food Preferences")}>
               <div className="feature-icon-box">
-                <Bell className="feature-icon text-brand-green" aria-hidden="true" />
+                <Sliders className="feature-icon text-brand-green" aria-hidden="true" />
               </div>
-              <h3 className="feature-card-title">Expiry Date Tracking</h3>
+              <h3 className="feature-card-title">Food Preferences</h3>
               <p className="feature-card-text">
-                Monitor shelf lives with color-coded freshness badges (Fresh, Use Soon, Expired) and opt-in web push reminders before food spoils.
+                Personalize dietary patterns (Vegetarian, Vegan, Jain, Keto, etc.), favorite foods, and cuisine preferences to tailor food recommendations.
               </p>
             </div>
 
-            {/* Feature 6 */}
-            <div className="feature-card">
+            {/* 6. Allergy Awareness */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Allergy Awareness")}>
+              <div className="feature-icon-box">
+                <AlertTriangle className="feature-icon text-brand-green" aria-hidden="true" />
+              </div>
+              <h3 className="feature-card-title">Allergy Awareness</h3>
+              <p className="feature-card-text">
+                Declare diagnosed allergens with severity ratings and receive fail-closed alert banners whenever a scanned product conflicts with your list.
+              </p>
+            </div>
+
+            {/* 7. Kitchen Inventory */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Kitchen Inventory")}>
               <div className="feature-icon-box">
                 <Refrigerator className="feature-icon text-brand-green" aria-hidden="true" />
               </div>
-              <h3 className="feature-card-title">Smart Kitchen Inventory</h3>
+              <h3 className="feature-card-title">Kitchen Inventory</h3>
               <p className="feature-card-text">
                 Organize groceries across Fridge, Pantry, and Freezer locations using an append-only event ledger with full audit history.
               </p>
             </div>
 
-            {/* Feature 7 */}
-            <div className="feature-card">
+            {/* 8. Expiry Tracking */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Expiry Tracking")}>
+              <div className="feature-icon-box">
+                <Bell className="feature-icon text-brand-green" aria-hidden="true" />
+              </div>
+              <h3 className="feature-card-title">Expiry Tracking</h3>
+              <p className="feature-card-text">
+                Monitor shelf lives with color-coded freshness badges (Fresh, Use Soon, Expired) and proactive alerts before food spoils.
+              </p>
+            </div>
+
+            {/* 9. Shopping Lists */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Shopping Lists")}>
+              <div className="feature-icon-box">
+                <ShoppingBag className="feature-icon text-brand-green" aria-hidden="true" />
+              </div>
+              <h3 className="feature-card-title">Shopping Lists</h3>
+              <p className="feature-card-text">
+                Maintain smart replenishment grocery lists that automatically suggest depleted pantry staples when marked consumed.
+              </p>
+            </div>
+
+            {/* 10. Household Collaboration */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Household Collaboration")}>
               <div className="feature-icon-box">
                 <Users className="feature-icon text-brand-green" aria-hidden="true" />
               </div>
               <h3 className="feature-card-title">Household Collaboration</h3>
               <p className="feature-card-text">
-                Share a live kitchen pantry and synchronized replenishment shopping list with your family members with multi-tenant data privacy.
+                Share a live kitchen pantry and synchronized grocery lists with your family via secure cryptographic invitations with strict privacy controls.
               </p>
             </div>
 
-            {/* Feature 8 */}
-            <div className="feature-card">
+            {/* 11. Supported Offline Functionality */}
+            <div className="feature-card" onClick={() => handleFeatureClick("Offline Functionality")}>
               <div className="feature-icon-box">
                 <Database className="feature-icon text-brand-green" aria-hidden="true" />
               </div>
-              <h3 className="feature-card-title">Offline Access & Privacy</h3>
+              <h3 className="feature-card-title">Supported Offline Functionality</h3>
               <p className="feature-card-text">
-                Core scanning and inventory work seamlessly offline in local storage. All camera video frames are processed in-memory and never uploaded.
+                Local-first IndexedDB architecture ensures barcode scanning, inventory lookup, and local edits operate without an active internet connection.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4. HOW FOODCUE WORKS (4 Clean Steps) */}
+      {/* =====================================================================
+          4. HOW FOODCUE WORKS (4 Clean Steps)
+          1. Discover your food -> 2. Understand your products -> 3. Organize your kitchen -> 4. Stay informed
+      ===================================================================== */}
       <section className="landing-how-it-works-section" aria-labelledby="how-it-works-heading">
         <div className="section-container">
           <div className="section-header-block">
-            <p className="section-eyebrow">EFFORTLESS FOOD CLARITY</p>
+            <p className="section-eyebrow">SIMPLE 4-STEP PROCESS</p>
             <h2 id="how-it-works-heading" className="section-heading">How FoodCue Works</h2>
             <p className="section-lead-text">
-              Four straightforward steps from grocery aisle discovery to mindful household cooking.
+              Four straightforward steps from grocery aisle discovery to organized household cooking.
             </p>
           </div>
 
@@ -346,7 +384,7 @@ export function GuestHome({
               </div>
               <h3 className="step-title">Discover Your Food</h3>
               <p className="step-text">
-                Scan a packaged food barcode with your phone camera or search any item by brand or product name.
+                Scan any packaged food barcode with your device camera or search any item by brand or product name.
               </p>
             </div>
 
@@ -355,9 +393,9 @@ export function GuestHome({
               <div className="step-icon-circle">
                 <HeartPulse className="step-icon text-brand-green" aria-hidden="true" />
               </div>
-              <h3 className="step-title">Clear Health Score</h3>
+              <h3 className="step-title">Understand Your Products</h3>
               <p className="step-text">
-                Explore an objective 0–100 health score, plain-language nutrient highlights, and automatic allergen conflict warnings.
+                Inspect an objective 0–100 health score, plain-language nutrient highlights, and automatic allergen conflict warnings.
               </p>
             </div>
 
@@ -379,71 +417,16 @@ export function GuestHome({
               </div>
               <h3 className="step-title">Stay Informed</h3>
               <p className="step-text">
-                Receive proactive reminders before items spoil and collaborate on a shared replenishment grocery list.
+                Receive proactive reminders before items spoil and collaborate on a shared replenishment grocery list with your household.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 5. WHY FOODCUE SECTION (Value Propositions) */}
-      <section className="landing-why-section" aria-labelledby="why-heading">
-        <div className="section-container">
-          <div className="section-header-block">
-            <p className="section-eyebrow">THE VALUE OF FOODCUE</p>
-            <h2 id="why-heading" className="section-heading">
-              Everything You Need to Manage Your Food, in One Place.
-            </h2>
-            <p className="section-lead-text">
-              Real household benefits designed to save you time, reduce waste, and bring confidence to everyday eating.
-            </p>
-          </div>
-
-          <div className="why-benefits-grid">
-            <div className="benefit-card">
-              <div className="benefit-header">
-                <Check className="benefit-check-icon text-brand-green" aria-hidden="true" />
-                <h3 className="benefit-title">Better Visibility into Packaged Foods</h3>
-              </div>
-              <p className="benefit-text">
-                Make empowered dietary choices for your household with reliable data instead of relying on front-of-package marketing slogans.
-              </p>
-            </div>
-
-            <div className="benefit-card">
-              <div className="benefit-header">
-                <Check className="benefit-check-icon text-brand-green" aria-hidden="true" />
-                <h3 className="benefit-title">Fewer Wasted Groceries & Lower Bills</h3>
-              </div>
-              <p className="benefit-text">
-                Keep track of use-by dates so perishable foods are consumed on time. Cut down on forgotten spoiled items in your fridge.
-              </p>
-            </div>
-
-            <div className="benefit-card">
-              <div className="benefit-header">
-                <Check className="benefit-check-icon text-brand-green" aria-hidden="true" />
-                <h3 className="benefit-title">Connected Family Coordination</h3>
-              </div>
-              <p className="benefit-text">
-                Share a single live pantry view and collaborative shopping list with family members or roommates to avoid duplicate grocery runs.
-              </p>
-            </div>
-
-            <div className="benefit-card">
-              <div className="benefit-header">
-                <Check className="benefit-check-icon text-brand-green" aria-hidden="true" />
-                <h3 className="benefit-title">Privacy-First Architecture</h3>
-              </div>
-              <p className="benefit-text">
-                Your camera video stream is processed in transient device memory. No photos are ever saved to disk or transmitted to remote servers.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. PRODUCT PREVIEW SECTION (Authentic UI Showcase) */}
+      {/* =====================================================================
+          5. PRODUCT PREVIEW SECTION (Authentic UI Showcase)
+      ===================================================================== */}
       <section className="landing-preview-section" aria-labelledby="preview-heading">
         <div className="section-container">
           <div className="section-header-block">
@@ -632,7 +615,9 @@ export function GuestHome({
         </div>
       </section>
 
-      {/* 7. TRUST, TRANSPARENCY & DATA ACCURACY */}
+      {/* =====================================================================
+          6. TRUST, TRANSPARENCY & DATA ACCURACY
+      ===================================================================== */}
       <section className="landing-transparency-section" aria-labelledby="transparency-heading">
         <div className="section-container">
           <div className="transparency-card">
@@ -678,16 +663,20 @@ export function GuestHome({
         </div>
       </section>
 
-      {/* 8. FINAL CONVERSION CTA SECTION */}
+      {/* =====================================================================
+          7. FINAL CONVERSION CTA SECTION
+          Headline: Start Managing Your Kitchen with FoodCue.
+          Button: Create Your Account.
+      ===================================================================== */}
       <section className="landing-final-cta-section" aria-labelledby="final-cta-heading">
         <div className="section-container">
           <div className="final-cta-card">
             <h2 id="final-cta-heading" className="final-cta-title">
-              Take Control of Your Kitchen with FoodCue.
+              Start Managing Your Kitchen with FoodCue.
             </h2>
             <p className="final-cta-description">
-              Start organizing your food products, exploring clear nutrition insights,
-              and managing your kitchen essentials in one place.
+              Organize your food products, explore clear nutrition insights,
+              and coordinate your kitchen essentials with people you trust.
             </p>
 
             <div className="final-cta-buttons">
@@ -695,10 +684,10 @@ export function GuestHome({
                 <button
                   type="button"
                   className="final-cta-primary-btn"
-                  aria-label="Create your free account on FoodCue"
+                  aria-label="Create your account on FoodCue"
                 >
                   <UserPlus className="btn-icon" aria-hidden="true" />
-                  <span>Create Your Free Account</span>
+                  <span>Create Your Account</span>
                 </button>
               </SignUpButton>
 
@@ -717,4 +706,4 @@ export function GuestHome({
       </section>
     </div>
   );
-}
+};

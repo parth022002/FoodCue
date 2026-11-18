@@ -159,7 +159,7 @@ export class OnboardingApiClient {
    */
   async createInvitation(payload: {
     householdId: string;
-    email: string;
+    email?: string;
     role?: HouseholdMemberRole;
   }): Promise<{ invitation: HouseholdInvitationRecord; token: string; inviteUrl: string }> {
     const headers = await this.getAuthHeaders();
