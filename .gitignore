@@ -7,6 +7,7 @@ coverage/
 .env.*
 !.env.example
 playwright-report/
+.playwright-mcp/
 test-results/
 *.zip
 

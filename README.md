@@ -5,7 +5,8 @@
 
 A local-first, privacy-conscious packaged food intelligence and kitchen-management Progressive Web Application (PWA).
 
-[![Production Status](https://img.shields.io/badge/Production-Ready-075A35?style=for-the-badge&logo=vercel&logoColor=white)](https://github.com/parth022002/FoodCue)
+[![Live Website](https://img.shields.io/badge/Live%20App-food--cue.vercel.app-075A35?style=for-the-badge&logo=vercel&logoColor=white)](https://food-cue.vercel.app/)
+[![Production Status](https://img.shields.io/badge/Production-Ready-075A35?style=for-the-badge&logo=vercel&logoColor=white)](https://food-cue.vercel.app/)
 [![Tests Passing](https://img.shields.io/badge/Tests-290%2F290%20Passing-10B981?style=for-the-badge&logo=vitest&logoColor=white)](https://github.com/parth022002/FoodCue)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict%205.7.3-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://github.com/parth022002/FoodCue)
 [![Vite](https://img.shields.io/badge/Vite-6.0.7-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://github.com/parth022002/FoodCue)
@@ -15,11 +16,15 @@ A local-first, privacy-conscious packaged food intelligence and kitchen-manageme
 
 <br/>
 
-**Architect & Developer:** [Parth Ahuja](https://github.com/parth022002) &bull; **Repository:** [parth022002/FoodCue](https://github.com/parth022002/FoodCue)
+**Architect & Developer:** [Parth Ahuja](https://github.com/parth022002) &bull; **Live Website:** [https://food-cue.vercel.app/](https://food-cue.vercel.app/) &bull; **Repository:** [parth022002/FoodCue](https://github.com/parth022002/FoodCue)
 
 <br/>
 
-<img src="docs/screenshots/brand_design_system.png" alt="FoodCue Design System & Product Overview" width="100%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
+<a href="https://food-cue.vercel.app/" target="_blank">
+  <img src="docs/screenshots/live_hero_showcase.png" alt="FoodCue Live Production Website at food-cue.vercel.app" width="100%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
+</a>
+
+*Live Production Website Snapshot — Visit [food-cue.vercel.app](https://food-cue.vercel.app/)*
 
 </div>
 
@@ -27,14 +32,21 @@ A local-first, privacy-conscious packaged food intelligence and kitchen-manageme
 
 ## 📖 Table of Contents
 
+- [Live Production Deployment](#-live-production-deployment)
 - [Overview & Problem Statement](#-overview--problem-statement)
-- [Key Features & Visual Tour](#-key-features--visual-tour)
-  - [1. SmartScan Barcode & Packaging Intelligence](#1-smartscan-barcode--packaging-intelligence)
-  - [2. Digital Kitchen & FIFO Expiry Tracking](#2-digital-kitchen--fifo-expiry-tracking)
-  - [3. Personalized Authenticated Dashboard](#3-personalized-authenticated-dashboard)
-  - [4. Multi-Tenant Household Sharing](#4-multi-tenant-household-sharing)
-  - [5. Cloud Sync & Multi-Device Reconciliation](#5-cloud-sync--multi-device-reconciliation)
-  - [6. Public Landing & Discovery](#6-public-landing--discovery)
+- [Live Application Tour & Screenshots](#-live-application-tour--screenshots)
+  - [1. Live Landing & Hero Showcase](#1-live-landing--hero-showcase)
+  - [2. Interactive Feature Previews (Direct from Live Site)](#2-interactive-feature-previews-direct-from-live-site)
+  - [3. Comprehensive 11-Capability Matrix](#3-comprehensive-11-capability-matrix)
+  - [4. Seamless 4-Step Food Management Flow](#4-seamless-4-step-food-management-flow)
+  - [5. Responsive Mobile Experience (iPhone Viewport)](#5-responsive-mobile-experience-iphone-viewport)
+  - [6. Polished & Redesigned Footer (Developer Credit)](#6-polished--redesigned-footer-developer-credit)
+- [Core Application Features](#-core-application-features)
+  - [SmartScan Barcode & Packaging Intelligence](#smartscan-barcode--packaging-intelligence)
+  - [Digital Kitchen & FIFO Expiry Tracking](#digital-kitchen--fifo-expiry-tracking)
+  - [Personalized Authenticated Dashboard](#personalized-authenticated-dashboard)
+  - [Multi-Tenant Household Sharing](#multi-tenant-household-sharing)
+  - [Cloud Sync & Multi-Device Reconciliation](#cloud-sync--multi-device-reconciliation)
 - [System Architecture & Data Flow](#-system-architecture--data-flow)
   - [High-Level Architecture](#high-level-architecture)
   - [SmartScan Processing Pipeline](#smartscan-processing-pipeline)
@@ -45,28 +57,128 @@ A local-first, privacy-conscious packaged food intelligence and kitchen-manageme
 - [Project Structure & Canonical Docs](#-project-structure--canonical-docs)
 - [Getting Started & Local Development](#-getting-started--local-development)
 - [Automated Testing Suite](#-automated-testing-suite)
-- [Production Deployment](#-production-deployment)
+- [Production Deployment Guide](#-production-deployment-guide)
 - [Author & Credits](#-author--credits)
 
 ---
 
-## 🌟 Overview & Problem Statement
+## 🌐 Live Production Deployment
 
-Modern consumers face complex food packaging, misleading front-of-pack claims, ambiguous E-numbers/INS additives, and rising kitchen food waste. Most existing solutions either force invasive user accounts before basic scanning, upload private camera feeds to third-party cloud servers, or fail completely when offline.
+FoodCue is deployed to production on Vercel at **[https://food-cue.vercel.app/](https://food-cue.vercel.app/)**.
 
-**FoodCue** bridges this gap by providing an **offline-first, zero-mandatory-login kitchen copilot** designed for Indian and international households:
-
-1. **Zero-Friction Offline Access:** 100% functional out of the box with client-side IndexedDB. Scan barcodes, interpret ingredients, and log pantry items without creating an account.
-2. **Transient Device Processing:** Camera frames never leave device memory. All barcode detection and OCR happen strictly in-browser via WebAssembly and Web Workers.
-3. **Deterministic 0–100 Health Scoring:** Mathematical nutrient profiling penalizing saturated fats, free sugars, sodium, and ultra-processed additives. Missing nutrient data is preserved as `null`—never falsely assumed to be zero.
-4. **Collaborative Household Sharing:** Secure family inventory sync with Role-Based Access Control (`admin`, `editor`, `viewer`) and cryptographic link sharing.
-5. **Zero-Cash Operational Footprint:** Architected to run entirely on free-tier, production-grade cloud services (Neon Serverless PostgreSQL, Clerk Authentication, Vercel Serverless Functions).
+| Attribute | Details |
+|---|---|
+| **Production URL** | [https://food-cue.vercel.app/](https://food-cue.vercel.app/) |
+| **Hosting Platform** | Vercel Edge Network |
+| **Serverless Backend** | 11 Consolidated ESM Handlers (Vercel Hobby Plan Compliant) |
+| **Database** | Neon Serverless PostgreSQL with Pooled Connections |
+| **Authentication** | Clerk Identity Platform |
+| **Offline Capability** | 100% Functional Client-Side IndexedDB PWA |
 
 ---
 
-## 📸 Key Features & Visual Tour
+## 📸 Live Application Tour & Screenshots
 
-### 1. SmartScan Barcode & Packaging Intelligence
+*All screenshots below are captured directly from the live production deployment at [https://food-cue.vercel.app/](https://food-cue.vercel.app/).*
+
+### 1. Live Landing & Hero Showcase
+
+The public landing page introduces consumers to FoodCue’s privacy-first architecture, showing zero mandatory login friction, instant camera processing guarantees, and an interactive dairy product demonstration (Amul Taaza Toned Milk with deterministic Health Score 78/100).
+
+<div align="center">
+  <a href="https://food-cue.vercel.app/" target="_blank">
+    <img src="docs/screenshots/live_hero_showcase.png" alt="FoodCue Live Production Landing Page" width="95%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />
+  </a>
+  <p><sub><i>Figure 1: Desktop landing view at <a href="https://food-cue.vercel.app/">food-cue.vercel.app</a> showing brand identity, action buttons, and live health score preview.</i></sub></p>
+</div>
+
+---
+
+### 2. Interactive Feature Previews (Direct from Live Site)
+
+Visitors on [food-cue.vercel.app](https://food-cue.vercel.app/) can toggle between interactive tabs to preview FoodCue's four primary workflows:
+
+#### A. SmartScan Barcode Decoding
+Sub-100ms camera decoding powered by WebAssembly, with full hardware zoom (1.0x–5.0x), flashlight torch toggle, and front/back camera switching.
+
+<div align="center">
+  <img src="docs/screenshots/live_smartscan_preview.png" alt="Live SmartScan Preview" width="90%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);" />
+  <p><sub><i>Figure 2A: SmartScan viewfinder preview with camera controls and offline WASM decoding indicator.</i></sub></p>
+</div>
+
+#### B. Product Intelligence & Health Rating
+Objective 0–100 nutritional scoring with breakdown of energy, added sugar, saturated fat, sodium, and ultra-processed INS additive alerts.
+
+<div align="center">
+  <img src="docs/screenshots/live_product_intelligence_preview.png" alt="Live Product Intelligence Preview" width="90%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);" />
+  <p><sub><i>Figure 2B: Product intelligence preview showing transparent nutrient grades and allergen screening.</i></sub></p>
+</div>
+
+#### C. Kitchen Inventory & FIFO Expiry
+Digital kitchen organization sorting foods into Fridge, Pantry, and Freezer storage locations with real-time freshness badges.
+
+<div align="center">
+  <img src="docs/screenshots/live_kitchen_inventory_preview.png" alt="Live Kitchen Inventory Preview" width="90%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);" />
+  <p><sub><i>Figure 2C: Digital pantry view showing color-coded expiry badges and consumption status.</i></sub></p>
+</div>
+
+#### D. Smart Replenishment Shopping List
+Interactive grocery checklist that automatically populates when inventory items are consumed, preventing forgotten essentials.
+
+<div align="center">
+  <img src="docs/screenshots/live_shopping_list_preview.png" alt="Live Shopping List Preview" width="90%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);" />
+  <p><sub><i>Figure 2D: Smart shopping list preview with quick toggle checkboxes and categorization.</i></sub></p>
+</div>
+
+---
+
+### 3. Comprehensive 11-Capability Matrix
+
+FoodCue integrates 11 core capabilities into a single cohesive platform, spanning barcode scanning, nutrition profiling, additive analysis, allergen safeguards, inventory management, and household sharing:
+
+<div align="center">
+  <img src="docs/screenshots/live_capabilities_grid.png" alt="Live Capabilities Grid at food-cue.vercel.app" width="95%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);" />
+  <p><sub><i>Figure 3: Built for Real Kitchens & Real Families — 11 core capabilities live on <a href="https://food-cue.vercel.app/">food-cue.vercel.app</a>.</i></sub></p>
+</div>
+
+---
+
+### 4. Seamless 4-Step Food Management Flow
+
+From grocery store aisle discovery to organized household cooking:
+
+<div align="center">
+  <img src="docs/screenshots/live_how_it_works.png" alt="Live 4-Step Process at food-cue.vercel.app" width="95%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);" />
+  <p><sub><i>Figure 4: How FoodCue Works — 4 intuitive steps from barcode scanning to collaborative replenishment.</i></sub></p>
+</div>
+
+---
+
+### 5. Responsive Mobile Experience (iPhone Viewport)
+
+Designed mobile-first with touch-optimized targets ($\ge 44\text{px}$), fluid typography, and responsive grid layouts tested on iPhone, iPad, Android, and Desktop viewports:
+
+<div align="center">
+  <img src="docs/screenshots/live_mobile_viewport.png" alt="Live Mobile Viewport on iPhone" width="40%" style="border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.15);" />
+  <p><sub><i>Figure 5: Mobile viewport on iPhone (393px width) rendered live at <a href="https://food-cue.vercel.app/">food-cue.vercel.app</a>.</i></sub></p>
+</div>
+
+---
+
+### 6. Polished & Redesigned Footer (Developer Credit)
+
+A modern, clean footer featuring 4 organized columns, zero-border pill authentication buttons, streamlined legal links, and developer attribution (**Parth Ahuja**):
+
+<div align="center">
+  <img src="docs/screenshots/live_footer_redesigned.png" alt="Live Redesigned Footer at food-cue.vercel.app" width="95%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);" />
+  <p><sub><i>Figure 6: Clean redesigned footer live at <a href="https://food-cue.vercel.app/">food-cue.vercel.app</a> showing developer attribution: <strong>Parth Ahuja</strong>.</i></sub></p>
+</div>
+
+---
+
+## 📱 Core Application Features
+
+### SmartScan Barcode & Packaging Intelligence
 
 Scan standard 1D/2D barcodes (EAN-13, EAN-8, UPC-A, UPC-E, QR Code, GS1 Digital Link) in under 100ms. Instantly view nutrient grades, additive warnings, and allergen alerts.
 
@@ -80,7 +192,7 @@ Scan standard 1D/2D barcodes (EAN-13, EAN-8, UPC-A, UPC-E, QR Code, GS1 Digital 
 
 ---
 
-### 2. Digital Kitchen & FIFO Expiry Tracking
+### Digital Kitchen & FIFO Expiry Tracking
 
 Track fresh produce, refrigerated items, and packaged groceries with First-In, First-Out (FIFO) consumption tracking.
 
@@ -94,7 +206,7 @@ Track fresh produce, refrigerated items, and packaged groceries with First-In, F
 
 ---
 
-### 3. Personalized Authenticated Dashboard
+### Personalized Authenticated Dashboard
 
 A unified command center for managing household food supplies, notification preferences, and personalized meal planning.
 
@@ -108,7 +220,7 @@ A unified command center for managing household food supplies, notification pref
 
 ---
 
-### 4. Multi-Tenant Household Sharing
+### Multi-Tenant Household Sharing
 
 Collaborate with family members, roommates, or household staff in real-time.
 
@@ -122,7 +234,7 @@ Collaborate with family members, roommates, or household staff in real-time.
 
 ---
 
-### 5. Cloud Sync & Multi-Device Reconciliation
+### Cloud Sync & Multi-Device Reconciliation
 
 Seamlessly synchronize pantry items, shopping lists, and custom labels across laptops, tablets, and smartphones.
 
@@ -133,19 +245,6 @@ Seamlessly synchronize pantry items, shopping lists, and custom labels across la
 - **Deterministic Last-Write-Wins (LWW):** Vector clocks and timestamps prevent overwrite conflicts during concurrent device edits.
 - **Connected Devices Management:** Inspect all logged-in devices, active sessions, and revoke lost devices remotely.
 - **Local-to-Cloud Migration Wizard:** Multi-step consumer onboarding that transfers local IndexedDB data safely to Neon PostgreSQL upon sign-in.
-
----
-
-### 6. Public Landing & Discovery
-
-A clean, responsive public marketing portal highlighting FoodCue's core capabilities, privacy guarantees, and instant sign-in.
-
-<div align="center">
-  <img src="docs/screenshots/landing_hero_overview.png" alt="FoodCue Public Landing Page" width="90%" style="border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);" />
-</div>
-
-- **Responsive Viewport Design:** Tested across compact mobile (320px–430px), tablet (768px–1024px), desktop (1440px), and ultrawide (2560px+).
-- **Polished Footer:** Simplified navigation, zero-border pill buttons, transparent legal links, and developer attribution.
 
 ---
 
@@ -399,13 +498,14 @@ Result:     100% Passing
 
 ---
 
-## 🌐 Production Deployment
+## 🌐 Production Deployment Guide
 
-FoodCue is deployed to [Vercel](https://vercel.com):
+FoodCue is live in production on Vercel at **[https://food-cue.vercel.app/](https://food-cue.vercel.app/)**:
 
-1. **Vercel Hobby Plan Compliance:** All serverless routes are packaged into **11 ESM handlers** (well within the 12-function Hobby plan limit).
-2. **Fluid Compute Support:** Configured for Active CPU billing with zero deprecated memory overrides.
-3. **Automatic Cache Invalidation:** Handled cleanly through `package.json` build scripts.
+1. **Live Production Endpoint:** [https://food-cue.vercel.app/](https://food-cue.vercel.app/)
+2. **Vercel Hobby Plan Compliance:** All serverless routes are packaged into **11 ESM handlers** (well within the 12-function Hobby plan limit).
+3. **Fluid Compute Support:** Configured for Active CPU billing with zero deprecated memory overrides.
+4. **Automatic Cache Invalidation & CI/CD:** Commits pushed to `origin/main` automatically build and deploy across Vercel's global edge network.
 
 To deploy your own instance:
 
@@ -421,10 +521,11 @@ git push origin main
 - **Creator & Lead Developer:** **Parth Ahuja**
   - **GitHub:** [@parth022002](https://github.com/parth022002)
   - **Email:** [parthahuja021102@gmail.com](mailto:parthahuja021102@gmail.com)
-  - **Project:** [FoodCue](https://github.com/parth022002/FoodCue)
+  - **Live Website:** [https://food-cue.vercel.app/](https://food-cue.vercel.app/)
+  - **Repository:** [https://github.com/parth022002/FoodCue](https://github.com/parth022002/FoodCue)
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by Parth Ahuja &bull; © 2026 FoodCue. All rights reserved.</sub>
+  <sub>Built with ❤️ by Parth Ahuja &bull; Live at <a href="https://food-cue.vercel.app/">food-cue.vercel.app</a> &bull; © 2026 FoodCue. All rights reserved.</sub>
 </div>
