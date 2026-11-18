@@ -28,9 +28,7 @@ interface GuestHomeProps {
 type PreviewTab = "scan" | "nutrition" | "kitchen" | "shopping";
 
 export function GuestHome({
-  onOpenScan,
-  onOpenSearch: _onOpenSearch,
-  onRequireAuthPrompt: _onRequireAuthPrompt
+  onOpenScan
 }: GuestHomeProps) {
   const [activePreviewTab, setActivePreviewTab] = useState<PreviewTab>("scan");
 

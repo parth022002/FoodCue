@@ -5,8 +5,6 @@ import {
   resolveHouseholdRole
 } from "../../../src/domain/entities/household";
 import { syncRepository } from "../../../src/server/database/repositories/sync.repository";
-import syncPushHandler from "../../../src/server/endpoints/syncPush";
-import syncPullHandler from "../../../src/server/endpoints/syncPull";
 
 describe("Milestone 5: Multi-Tenant Household Sharing & RBAC Isolation", () => {
   beforeEach(async () => {

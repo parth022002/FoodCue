@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { openDatabase, putRecord, getAllRecords, clearFoodCueData } from "../../src/adapters/storage/database";
+import { clearFoodCueData } from "../../src/adapters/storage/database";
 import {
   InternetResearchAgent,
   PersonalizedRecommendationAgent

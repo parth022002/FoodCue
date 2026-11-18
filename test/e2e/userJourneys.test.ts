@@ -1,13 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { openDatabase, putRecord, getAllRecords, clearFoodCueData } from "../../src/adapters/storage/database";
+import { describe, it, expect, beforeEach } from "vitest";
+import { clearFoodCueData } from "../../src/adapters/storage/database";
 import { createConfirmedLabel } from "../../src/domain/contracts/confirmedLabel";
 import { findProductByGtin } from "../../src/domain/entities/catalogData";
 import { evaluateConfirmedFoodLabel } from "../../src/domain/rules/foodIntelligenceEngine";
-import { pantryLedger } from "../../src/domain/services/pantryLedger";
 import { shoppingStorage } from "../../src/adapters/storage/shoppingStorage";
 import { localChangeQueue } from "../../src/sync/queue/localChangeQueue";
 import { syncMetadata } from "../../src/sync/state/syncMetadata";
-import { syncCoordinator } from "../../src/sync/engine/syncCoordinator";
 import { conflictResolver } from "../../src/sync/reconciliation/conflictResolver";
 import type { ProductCandidate } from "../../src/domain/entities/food";
 
