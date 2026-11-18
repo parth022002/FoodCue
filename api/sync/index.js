@@ -4727,11 +4727,73 @@ async function parseRequest(req) {
   };
 }
 
-// src/server/endpoints/syncPull.ts
-var config = {
-  runtime: "nodejs"
-};
+// src/server/endpoints/syncPush.ts
 async function handler(req, res) {
+  const { headers, method, json } = await parseRequest(req);
+  if (method !== "POST") {
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+  }
+  try {
+    const userContext = await authenticateRequest(headers);
+    const body = await json();
+    if (!body || !body.deviceId || !Array.isArray(body.operations)) {
+      return sendResponse(
+        res,
+        { error: "Invalid sync push payload. deviceId and operations array are required.", code: "INVALID_PAYLOAD" },
+        400
+      );
+    }
+    if (body.operations.length > 100) {
+      return sendResponse(
+        res,
+        { error: "Batch size limit exceeded. Maximum 100 operations allowed per sync push.", code: "BATCH_SIZE_EXCEEDED" },
+        400
+      );
+    }
+    const isRevoked = await syncRepository.isDeviceRevoked(body.deviceId, userContext.clerkUserId);
+    if (isRevoked) {
+      return sendResponse(
+        res,
+        { error: "This device has been revoked. Re-authenticate to resume syncing.", code: "DEVICE_REVOKED" },
+        403
+      );
+    }
+    if (userContext.organizationId) {
+      const orgRole = (userContext.organizationRole || "").toLowerCase();
+      if (orgRole.includes("viewer") || orgRole.includes("guest")) {
+        return sendResponse(
+          res,
+          {
+            error: "Read-only household members cannot push modifications to the shared ledger.",
+            code: "FORBIDDEN_ROLE_INSUFFICIENT"
+          },
+          403
+        );
+      }
+    }
+    const tenantId = userContext.organizationId || userContext.clerkUserId;
+    const { processed, duplicates } = await syncRepository.processPushBatch(
+      tenantId,
+      body.deviceId,
+      body.operations
+    );
+    return sendResponse(
+      res,
+      {
+        success: true,
+        processedCount: processed,
+        duplicateCount: duplicates,
+        serverTimestamp: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      200
+    );
+  } catch (error) {
+    return errorResponse(error, res);
+  }
+}
+
+// src/server/endpoints/syncPull.ts
+async function handler2(req, res) {
   const { headers, method } = await parseRequest(req);
   if (method !== "GET") {
     return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
@@ -4767,7 +4829,153 @@ async function handler(req, res) {
     return errorResponse(error, res);
   }
 }
+
+// src/server/endpoints/syncMigrate.ts
+async function handler3(req, res) {
+  const { headers, method, json } = await parseRequest(req);
+  if (method !== "POST") {
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+  }
+  try {
+    const userContext = await authenticateRequest(headers);
+    const snapshot = await json();
+    if (!snapshot) {
+      return sendResponse(res, { error: "Empty migration snapshot.", code: "INVALID_PAYLOAD" }, 400);
+    }
+    const counts = await syncRepository.migrateSnapshot(userContext.clerkUserId, snapshot);
+    return sendResponse(
+      res,
+      {
+        migrated: true,
+        counts,
+        serverTimestamp: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      200
+    );
+  } catch (error) {
+    return errorResponse(error, res);
+  }
+}
+
+// src/server/endpoints/syncStatus.ts
+async function handler4(req, res) {
+  const { headers, method } = await parseRequest(req);
+  if (method !== "GET") {
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+  }
+  try {
+    const userContext = await authenticateRequest(headers);
+    const deviceRows = await query(
+      `
+      SELECT COUNT(*)::text as count, MAX(last_sync_at)::text as last_sync
+      FROM sync_devices
+      WHERE clerk_user_id = $1 AND is_revoked = FALSE;
+      `,
+      [userContext.clerkUserId]
+    );
+    const activeDevicesCount = parseInt(deviceRows[0]?.count ?? "0", 10);
+    const lastSyncAt = deviceRows[0]?.last_sync ?? null;
+    const opRows = await query(
+      `
+      SELECT COUNT(*)::text as count, MAX(server_timestamp)::text as max_cursor
+      FROM sync_operations
+      WHERE clerk_user_id = $1;
+      `,
+      [userContext.clerkUserId]
+    );
+    const totalOperations = parseInt(opRows[0]?.count ?? "0", 10);
+    const currentCursor = opRows[0]?.max_cursor ?? null;
+    const entityRows = await query(
+      `
+      SELECT
+        (SELECT COUNT(*)::text FROM foodcue_pantry_events WHERE clerk_user_id = $1) as pantry_events,
+        (SELECT COUNT(*)::text FROM foodcue_confirmed_labels WHERE clerk_user_id = $1) as confirmed_labels,
+        (SELECT COUNT(*)::text FROM foodcue_shopping_list WHERE clerk_user_id = $1) as shopping_items;
+      `,
+      [userContext.clerkUserId]
+    );
+    const pantryEventsCount = parseInt(entityRows[0]?.pantry_events ?? "0", 10);
+    const confirmedLabelsCount = parseInt(entityRows[0]?.confirmed_labels ?? "0", 10);
+    const shoppingItemsCount = parseInt(entityRows[0]?.shopping_items ?? "0", 10);
+    return sendResponse(
+      res,
+      {
+        syncEnabled: activeDevicesCount > 0 || totalOperations > 0,
+        activeDevicesCount,
+        lastSuccessfulSync: lastSyncAt,
+        currentCursor,
+        totalOperations,
+        cloudRecordCounts: {
+          pantryEvents: pantryEventsCount,
+          confirmedLabels: confirmedLabelsCount,
+          shoppingItems: shoppingItemsCount
+        },
+        conflictCount: 0,
+        serverTimestamp: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      200
+    );
+  } catch (error) {
+    return errorResponse(error, res);
+  }
+}
+
+// src/server/endpoints/deleteCloudData.ts
+async function handler5(req, res) {
+  const { headers, method } = await parseRequest(req);
+  if (method !== "POST") {
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+  }
+  try {
+    const userContext = await authenticateRequest(headers);
+    const userId = userContext.clerkUserId;
+    await query(`DELETE FROM foodcue_pantry_events WHERE clerk_user_id = $1;`, [userId]);
+    await query(`DELETE FROM foodcue_pantry_items WHERE clerk_user_id = $1;`, [userId]);
+    await query(`DELETE FROM foodcue_confirmed_labels WHERE clerk_user_id = $1;`, [userId]);
+    await query(`DELETE FROM foodcue_shopping_list WHERE clerk_user_id = $1;`, [userId]);
+    await query(`DELETE FROM foodcue_reminders WHERE clerk_user_id = $1;`, [userId]);
+    await query(`DELETE FROM sync_operations WHERE clerk_user_id = $1;`, [userId]);
+    await query(`DELETE FROM sync_devices WHERE clerk_user_id = $1;`, [userId]);
+    return sendResponse(
+      res,
+      {
+        success: true,
+        message: "All cloud records and synchronised copies have been permanently erased.",
+        serverTimestamp: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      200
+    );
+  } catch (error) {
+    return errorResponse(error, res);
+  }
+}
+
+// src/server/endpoints/syncRouter.ts
+var config = {
+  runtime: "nodejs"
+};
+async function handler6(req, res) {
+  const rawUrl = req?.url || "";
+  const query2 = req?.query || {};
+  const actionParam = typeof query2.action === "string" ? query2.action : "";
+  if (rawUrl.includes("/push") || actionParam === "push") {
+    return handler(req, res);
+  }
+  if (rawUrl.includes("/pull") || actionParam === "pull") {
+    return handler2(req, res);
+  }
+  if (rawUrl.includes("/migrate") || actionParam === "migrate") {
+    return handler3(req, res);
+  }
+  if (rawUrl.includes("/status") || actionParam === "status") {
+    return handler4(req, res);
+  }
+  if (rawUrl.includes("/deleteCloudData") || actionParam === "deleteCloudData") {
+    return handler5(req, res);
+  }
+  return sendResponse(res, { error: "Unknown sync endpoint", code: "NOT_FOUND" }, 404);
+}
 export {
   config,
-  handler as default
+  handler6 as default
 };

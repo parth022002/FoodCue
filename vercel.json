@@ -7,6 +7,14 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/api/sync/:action*",
+      "destination": "/api/sync"
+    },
+    {
+      "source": "/api/households/details",
+      "destination": "/api/households"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

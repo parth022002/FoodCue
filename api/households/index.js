@@ -5135,9 +5135,6 @@ async function parseRequest(req) {
 }
 
 // src/server/endpoints/households.ts
-var config = {
-  runtime: "nodejs"
-};
 async function handler(req, res) {
   const { headers, method, json } = await parseRequest(req);
   try {
@@ -5170,7 +5167,71 @@ async function handler(req, res) {
     return errorResponse(error, res);
   }
 }
+
+// src/server/endpoints/householdDetails.ts
+function extractQuery(req) {
+  const urlStr = typeof req.url === "string" ? req.url : req.url;
+  if (urlStr) {
+    try {
+      const parsed = new URL(urlStr, "http://localhost");
+      return parsed.searchParams;
+    } catch {
+    }
+  }
+  return new URLSearchParams();
+}
+async function handler2(req, res) {
+  const { headers, method } = await parseRequest(req);
+  const queryParams = extractQuery(req);
+  try {
+    const userContext = await authenticateRequest(headers);
+    const clerkUserId = userContext.clerkUserId;
+    const householdId = queryParams.get("householdId") || queryParams.get("id");
+    if (!householdId) {
+      throw new ValidationError("Missing required parameter: householdId");
+    }
+    const household = await householdRepository.findById(householdId);
+    if (!household) {
+      throw new NotFoundError("Household not found.");
+    }
+    const role = await householdRepository.getMemberRole(householdId, clerkUserId);
+    if (!role) {
+      throw new ForbiddenError("You are not an authorized member of this household.");
+    }
+    if (method === "GET") {
+      const members = await householdRepository.getHouseholdMembers(householdId, clerkUserId);
+      const invitations = await householdRepository.listHouseholdInvitations(householdId, clerkUserId);
+      return sendResponse(
+        res,
+        {
+          household,
+          userRole: role,
+          members,
+          invitations
+        },
+        200
+      );
+    }
+    return sendResponse(res, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" }, 405);
+  } catch (error) {
+    return errorResponse(error, res);
+  }
+}
+
+// src/server/endpoints/householdsRouter.ts
+var config = {
+  runtime: "nodejs"
+};
+async function handler3(req, res) {
+  const rawUrl = req?.url || "";
+  const query2 = req?.query || {};
+  const isDetails = rawUrl.includes("/details") || query2.view === "details" || query2.slug === "details";
+  if (isDetails) {
+    return handler2(req, res);
+  }
+  return handler(req, res);
+}
 export {
   config,
-  handler as default
+  handler3 as default
 };

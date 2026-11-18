@@ -12,24 +12,8 @@ const targets = [
     outfile: "api/devices/index.js"
   },
   {
-    entry: "src/server/endpoints/syncPush.ts",
-    outfile: "api/sync/push.js"
-  },
-  {
-    entry: "src/server/endpoints/syncPull.ts",
-    outfile: "api/sync/pull.js"
-  },
-  {
-    entry: "src/server/endpoints/syncMigrate.ts",
-    outfile: "api/sync/migrate.js"
-  },
-  {
-    entry: "src/server/endpoints/syncStatus.ts",
-    outfile: "api/sync/status.js"
-  },
-  {
-    entry: "src/server/endpoints/deleteCloudData.ts",
-    outfile: "api/sync/deleteCloudData.js"
+    entry: "src/server/endpoints/syncRouter.ts",
+    outfile: "api/sync/index.js"
   },
   {
     entry: "src/server/endpoints/notificationsSubscribe.ts",
@@ -40,12 +24,8 @@ const targets = [
     outfile: "api/profile/index.js"
   },
   {
-    entry: "src/server/endpoints/households.ts",
+    entry: "src/server/endpoints/householdsRouter.ts",
     outfile: "api/households/index.js"
-  },
-  {
-    entry: "src/server/endpoints/householdDetails.ts",
-    outfile: "api/households/details.js"
   },
   {
     entry: "src/server/endpoints/invitations.ts",
@@ -86,7 +66,7 @@ async function bundleAll() {
     console.log(`✓ Bundled ${entry} -> ${outfile}`);
   }
 
-  console.log("All 16 Vercel serverless API handlers bundled successfully!");
+  console.log("All 11 Vercel serverless API handlers bundled successfully!");
   process.exit(0);
 }
 
