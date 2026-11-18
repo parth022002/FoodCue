@@ -170,6 +170,47 @@ export class InternetResearchAgent {
     return [];
   }
 
+  /**
+   * Optional broad web search using Tavily AI Search API.
+   * Discovers official nutrition facts, manufacturer disclosures, and ingredient lists across the web.
+   */
+  async searchWebIntelligence(query: string): Promise<Array<{ title: string; url: string; content: string }>> {
+    const apiKey =
+      (typeof process !== "undefined" && (process.env?.TAVILY_API_KEY || process.env?.VITE_TAVILY_API_KEY)) ||
+      (typeof import.meta !== "undefined" && (import.meta.env?.VITE_TAVILY_API_KEY || import.meta.env?.TAVILY_API_KEY));
+
+    if (!apiKey || apiKey.includes("REPLACE_ME")) {
+      return [];
+    }
+
+    try {
+      const res = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: apiKey,
+          query: `${query} packaged food ingredients nutrition facts India`,
+          search_depth: "basic",
+          max_results: 3
+        }),
+        signal: AbortSignal.timeout(this.searchTimeoutMs)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return (data.results || []).map((r: { title?: string; url?: string; content?: string }) => ({
+          title: r.title || "",
+          url: r.url || "",
+          content: r.content || ""
+        }));
+      }
+    } catch {
+      // Graceful fallback
+    }
+
+    return [];
+  }
+
   private transformVerifiedProductToReport(prod: VerifiedFoodProduct): IntelligentProductReport {
     const nutritionAgent = new NutritionAnalysisAgent();
     const ingredientAgent = new IngredientAnalysisAgent();

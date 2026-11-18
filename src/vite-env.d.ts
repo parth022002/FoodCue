@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?: string;
   readonly VITE_OPENROUTER_API_KEY?: string;
   readonly VITE_GROQ_API_KEY?: string;
+  readonly VITE_TAVILY_API_KEY?: string;
+  readonly TAVILY_API_KEY?: string;
 }
 
 interface ImportMeta {

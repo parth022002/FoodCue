@@ -168,6 +168,15 @@ The table below catalogs all core and optional APIs, keys, and cloud configurati
 
 ---
 
+### 7. Tavily AI Search API (Real-time Food Web Search & Intelligence)
+- **Status:** **Active & Verified Live (`200 OK`)** (Configured securely in gitignored `.env`, `.env.local`, `.env.vercel`).
+- **Purpose:** Discovers official nutritional data, manufacturer disclosures, and ingredient lists across the web for products not yet cataloged in Open Food Facts or local databases.
+- **Endpoint:** `https://api.tavily.com/search`
+- **Environment Variables:** `TAVILY_API_KEY` and `VITE_TAVILY_API_KEY`.
+- **Search Depth:** `basic` (optimized for clean AI search extraction without ads or scraping blocks).
+
+---
+
 # Section C: Deployment Strategy — Vercel vs Render vs Cloudflare
 
 ### Definitive Recommendation: **Deploy on Vercel ONLY**

@@ -143,6 +143,33 @@ try {
 }
 results.openFoodFacts.details.forEach((d) => console.log("  " + d));
 
+// Test Tavily AI Web Search
+const tavilyKey = process.env.TAVILY_API_KEY || process.env.VITE_TAVILY_API_KEY;
+if (tavilyKey && !tavilyKey.includes("REPLACE_ME")) {
+  console.log("\nTesting Tavily AI Web Search API...");
+  try {
+    const startTv = Date.now();
+    const tvRes = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: tavilyKey,
+        query: "Amul Butter India",
+        max_results: 1
+      }),
+      signal: AbortSignal.timeout(6000)
+    });
+    const latTv = Date.now() - startTv;
+    if (tvRes.ok) {
+      console.log(`  ✓ Tavily AI Web Search connected (Status: ${tvRes.status}, Latency: ${latTv}ms)`);
+    } else {
+      console.log(`  ⚠️ Tavily returned HTTP ${tvRes.status}`);
+    }
+  } catch (err) {
+    console.log(`  ⚠️ Tavily test failed: ${err.message}`);
+  }
+}
+
 // 5. Audit Serverless API Bundles & Production Artifacts
 console.log("\n[5/5] Auditing Production Build Artifacts...");
 const expectedEndpoints = [
