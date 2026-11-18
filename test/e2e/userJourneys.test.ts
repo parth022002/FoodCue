@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { clearFoodCueData } from "../../src/adapters/storage/database";
+import { clearFoodCueData, putRecord, getAllRecords } from "../../src/adapters/storage/database";
 import { createConfirmedLabel } from "../../src/domain/contracts/confirmedLabel";
 import { findProductByGtin } from "../../src/domain/entities/catalogData";
 import { evaluateConfirmedFoodLabel } from "../../src/domain/rules/foodIntelligenceEngine";

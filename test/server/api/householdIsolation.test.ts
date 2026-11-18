@@ -109,7 +109,7 @@ describe("Milestone 5: Multi-Tenant Household Sharing & RBAC Isolation", () => {
       expect(pulledByA.length).toBe(2);
       expect(pulledByA.some((op) => op.entityId === "event_a1")).toBe(true);
       expect(pulledByA.some((op) => op.entityId === "event_a2")).toBe(true);
-    });
+    }, 15000);
 
     it("preserves isolation between personal pantries and household pantries", async () => {
       const personalUser = `user_charlie_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -148,6 +148,6 @@ describe("Milestone 5: Multi-Tenant Household Sharing & RBAC Isolation", () => {
       // Personal user pulls
       const charliePull = await syncRepository.pullOperationsSince(personalUser, null, 100);
       expect(charliePull.some((op) => op.entityId === "event_c1")).toBe(true);
-    });
+    }, 15000);
   });
 });

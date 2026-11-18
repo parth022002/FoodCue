@@ -9,7 +9,7 @@
  * - Journey E: Offline Functionality (Local catalog search, offline queue, sync reconciliation)
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { clearFoodCueData } from "../../src/adapters/storage/database";
 import {
   InternetResearchAgent,
@@ -24,9 +24,20 @@ import type { PantryEvent } from "../../src/domain/entities/pantry";
 
 describe("FoodCue Phase 11.3 — Complete End-to-End User Journeys", () => {
   beforeEach(async () => {
+    vi.spyOn(global, "fetch").mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        status: 404,
+        json: async () => ({ products: [] })
+      } as unknown as Response)
+    );
     await clearFoodCueData();
     await syncMetadata.reset();
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   // ---------------------------------------------------------------------------

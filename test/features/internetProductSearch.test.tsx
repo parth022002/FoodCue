@@ -1,9 +1,20 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { InternetProductSearch } from "../../src/features/search/InternetProductSearch";
 
+beforeEach(() => {
+  vi.spyOn(global, "fetch").mockImplementation(() =>
+    Promise.resolve({
+      ok: false,
+      status: 404,
+      json: async () => ({ products: [] })
+    } as unknown as Response)
+  );
+});
+
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe("InternetProductSearch Feature Component", () => {

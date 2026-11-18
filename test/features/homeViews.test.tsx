@@ -37,36 +37,34 @@ describe("Homepage Redesign Views (Guest vs Authenticated)", () => {
       );
 
       // Hero Title
-      expect(screen.getByText(/Know What You Eat/i)).toBeInTheDocument();
-      expect(screen.getByText(/Make Better Choices/i)).toBeInTheDocument();
+      expect(screen.getByText(/Know Your Food/i)).toBeInTheDocument();
+      expect(screen.getByText(/Manage Your Kitchen/i)).toBeInTheDocument();
 
       // Action Buttons
-      const scanBtn = screen.getByRole("button", { name: /scan a food product/i });
-      expect(scanBtn).toBeInTheDocument();
-      fireEvent.click(scanBtn);
-      expect(handleScan).toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: /get started by signing up for foodcue/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /sign in to your foodcue account/i })).toBeInTheDocument();
 
       // How it Works section
       expect(screen.getByText("How FoodCue Works")).toBeInTheDocument();
-      expect(screen.getByText("Clear Health Score")).toBeInTheDocument();
+      expect(screen.getByText("Understand Your Products")).toBeInTheDocument();
 
       // Product Introduction section
-      expect(screen.getByText("A Smarter Way to Understand and Manage Your Food")).toBeInTheDocument();
+      expect(screen.getByText("A Connected Way to Understand and Manage Your Food")).toBeInTheDocument();
 
       // Features section
-      expect(screen.getByText("Complete Food & Kitchen Capabilities")).toBeInTheDocument();
+      expect(screen.getByText("Built for Real Kitchens & Real Families")).toBeInTheDocument();
       expect(screen.getByText("Smart Food Scanning")).toBeInTheDocument();
-      expect(screen.getByText("Ingredient & Allergen Clarity")).toBeInTheDocument();
+      expect(screen.getByText("Allergy Awareness")).toBeInTheDocument();
 
-      // Why FoodCue Section
-      expect(screen.getByText("Everything You Need to Manage Your Food, in One Place.")).toBeInTheDocument();
+      // Preview Section
+      expect(screen.getByText("Designed for Real Kitchens")).toBeInTheDocument();
 
       // Trust & Transparency
       expect(screen.getByText("Trust, Transparency & Data Accuracy")).toBeInTheDocument();
 
       // Final CTA
-      expect(screen.getByText("Take Control of Your Kitchen with FoodCue.")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /create your free account/i })).toBeInTheDocument();
+      expect(screen.getByText("Start Managing Your Kitchen with FoodCue.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /create your account/i })).toBeInTheDocument();
 
       // Verification that no development age-range references (10 to 70) exist in rendered output
       expect(screen.queryByText(/10 to 70/i)).not.toBeInTheDocument();
