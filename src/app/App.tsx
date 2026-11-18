@@ -20,6 +20,9 @@ import { AuthGateView } from "../features/auth/AuthGateView";
 import { OnboardingWizard } from "../features/onboarding/OnboardingWizard";
 import { HouseholdOnboardingModal } from "../features/onboarding/HouseholdOnboardingModal";
 import { InvitationAcceptView } from "../features/household/InvitationAcceptView";
+import { RecipeDiscoveryView } from "../features/recipes/RecipeDiscoveryView";
+import { ReceiptScannerView } from "../features/receipts/ReceiptScannerView";
+import { LanguageProvider } from "../i18n";
 import { OnboardingApiClient } from "../services/onboardingApiClient";
 import { syncCoordinator } from "../sync/engine/syncCoordinator";
 import { getAllRecords } from "../adapters/storage/database";
@@ -39,7 +42,9 @@ export type ActiveTab =
   | "profile"
   | "privacy"
   | "terms"
-  | "household";
+  | "household"
+  | "recipes"
+  | "receipts";
 
 const PROTECTED_TABS: ActiveTab[] = [
   "scan",
@@ -49,7 +54,9 @@ const PROTECTED_TABS: ActiveTab[] = [
   "shopping",
   "catalog",
   "profile",
-  "household"
+  "household",
+  "recipes",
+  "receipts"
 ];
 
 function getFeatureDisplayName(tab: ActiveTab): string {
@@ -70,6 +77,10 @@ function getFeatureDisplayName(tab: ActiveTab): string {
       return "Personal Profile & Preferences";
     case "household":
       return "Household Collaboration";
+    case "recipes":
+      return "Smart Recipe & Meal Suggestions";
+    case "receipts":
+      return "Supermarket Bill & Receipt Scanner";
     default:
       return "Protected Features";
   }
@@ -101,6 +112,8 @@ export function App() {
       if (pathname === "/catalog" || pathname === "/products") return "catalog";
       if (pathname === "/profile" || pathname === "/settings") return "profile";
       if (pathname === "/household") return "household";
+      if (pathname === "/recipes" || pathname === "/meals") return "recipes";
+      if (pathname === "/receipts" || pathname === "/receipt-scanner") return "receipts";
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab") as ActiveTab;
       if (tabParam) return tabParam;
@@ -252,16 +265,17 @@ export function App() {
   }
 
   return (
-    <div className={`app-shell ${calmModeActive ? "calm-mode" : ""}`}>
-      {hasClerkKey && <CloudSyncBridge />}
+    <LanguageProvider>
+      <div className={`app-shell ${calmModeActive ? "calm-mode" : ""}`}>
+        {hasClerkKey && <CloudSyncBridge />}
 
-      {/* Redesigned Sticky Topbar with Separate Public & Authenticated Navbars */}
-      <Navbar
-        activeTab={tab}
-        onSelectTab={setTab}
-        onOpenInviteModal={() => setShowInviteModal(true)}
-        notificationCount={notificationCount}
-      />
+        {/* Redesigned Sticky Topbar with Separate Public & Authenticated Navbars */}
+        <Navbar
+          activeTab={tab}
+          onSelectTab={setTab}
+          onOpenInviteModal={() => setShowInviteModal(true)}
+          notificationCount={notificationCount}
+        />
 
       {/* Direct Invitation Acceptance Modal (if ?invite=token or /invite/:token in URL) */}
       {inviteToken && (
@@ -355,6 +369,8 @@ export function App() {
                   onNavigateToReminders={() => setTab("reminders")}
                   onNavigateToShopping={() => setTab("shopping")}
                   onNavigateToHousehold={() => setTab("household")}
+                  onNavigateToRecipes={() => setTab("recipes")}
+                  onNavigateToReceipts={() => setTab("receipts")}
                 />
               ) : (
                 <GuestHome
@@ -466,6 +482,21 @@ export function App() {
                 />
               </section>
             )}
+
+            {/* Tab 12: Recipes & Meal Suggestions */}
+            {tab === "recipes" && (
+              <RecipeDiscoveryView
+                onNavigateToKitchen={() => setTab("kitchen")}
+                onNavigateToShopping={() => setTab("shopping")}
+              />
+            )}
+
+            {/* Tab 13: Supermarket Bill & Receipt Scanner */}
+            {tab === "receipts" && (
+              <ReceiptScannerView
+                onItemsAddedToKitchen={() => setTab("kitchen")}
+              />
+            )}
           </>
         )}
       </main>
@@ -473,5 +504,6 @@ export function App() {
       {/* Redesigned Footers (Public 4-Column Footer vs Authenticated Compact Footer) */}
       <Footer onSelectTab={setTab} />
     </div>
+    </LanguageProvider>
   );
 }

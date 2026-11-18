@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useUser, useAuth, SignInButton, SignOutButton } from "@clerk/react";
+import { useTranslation, type SupportedLanguage } from "../../i18n";
 import {
   User,
   Mail,
@@ -143,6 +144,7 @@ export const PersonalProfilePage: React.FC<PersonalProfilePageProps> = ({
 }) => {
   const { user, isSignedIn, isLoaded: isUserLoaded } = useUser();
   const { signOut } = useAuth();
+  const { setLanguage } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Loading & Global States
@@ -1003,7 +1005,13 @@ export const PersonalProfilePage: React.FC<PersonalProfilePageProps> = ({
                 id="select-language"
                 className="form-select"
                 value={preferredLanguage}
-                onChange={(e) => setPreferredLanguage(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPreferredLanguage(val);
+                  if (val === "en" || val === "hi" || val === "mr" || val === "ta" || val === "te") {
+                    setLanguage(val as SupportedLanguage);
+                  }
+                }}
               >
                 <option value="en">English</option>
                 <option value="hi">Hindi (हिन्दी)</option>

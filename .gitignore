@@ -9,3 +9,11 @@ coverage/
 playwright-report/
 test-results/
 *.zip
+
+# Capacitor Android & iOS build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/

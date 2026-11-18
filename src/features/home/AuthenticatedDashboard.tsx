@@ -13,7 +13,9 @@ import {
   ShoppingBag,
   Users,
   Clock,
-  UserPlus
+  UserPlus,
+  Utensils,
+  Receipt
 } from "lucide-react";
 import { getAllRecords } from "../../adapters/storage/database";
 import { projectBalances } from "../../domain/services/pantryLedger";
@@ -35,6 +37,8 @@ interface AuthenticatedDashboardProps {
   onNavigateToReminders: () => void;
   onNavigateToShopping: () => void;
   onNavigateToHousehold?: () => void;
+  onNavigateToRecipes?: () => void;
+  onNavigateToReceipts?: () => void;
 }
 
 export const AuthenticatedDashboard: React.FC<AuthenticatedDashboardProps> = ({
@@ -47,7 +51,9 @@ export const AuthenticatedDashboard: React.FC<AuthenticatedDashboardProps> = ({
   onNavigateToProfile,
   onNavigateToReminders,
   onNavigateToShopping,
-  onNavigateToHousehold
+  onNavigateToHousehold,
+  onNavigateToRecipes,
+  onNavigateToReceipts
 }) => {
   const { user } = useUser();
   const [kitchenCount, setKitchenCount] = useState(0);
@@ -340,6 +346,56 @@ export const AuthenticatedDashboard: React.FC<AuthenticatedDashboardProps> = ({
               onClick={onNavigateToCatalogue}
             >
               <span>View My Catalogue</span>
+              <ArrowRight className="tiny-icon" />
+            </button>
+          </div>
+        </div>
+
+        {/* Card 6: Smart Recipe & Meal Suggestions */}
+        <div className="dashboard-summary-card">
+          <div className="card-header-icon-row">
+            <div className="card-icon-bubble bg-emerald-50 text-emerald-700">
+              <Utensils className="summary-icon" aria-hidden="true" />
+            </div>
+            <span className="status-pill text-emerald-700">Pantry Matching</span>
+          </div>
+          <h3 className="card-metric-number">Ideas</h3>
+          <h4 className="card-title">What Can I Cook Today?</h4>
+          <p className="card-description">
+            Delicious meals crafted from ingredients already in your kitchen, prioritizing items nearing expiry.
+          </p>
+          <div className="card-footer-action">
+            <button
+              type="button"
+              className="card-action-btn"
+              onClick={onNavigateToRecipes}
+            >
+              <span>Explore Recipes</span>
+              <ArrowRight className="tiny-icon" />
+            </button>
+          </div>
+        </div>
+
+        {/* Card 7: Supermarket Bill & Receipt Scanner */}
+        <div className="dashboard-summary-card">
+          <div className="card-header-icon-row">
+            <div className="card-icon-bubble bg-blue-50 text-blue-700">
+              <Receipt className="summary-icon" aria-hidden="true" />
+            </div>
+            <span className="status-pill text-blue-700">Bulk Restock</span>
+          </div>
+          <h3 className="card-metric-number">Receipt</h3>
+          <h4 className="card-title">Scan Grocery Bill</h4>
+          <p className="card-description">
+            Photograph or upload your supermarket receipt to automatically import items into your inventory.
+          </p>
+          <div className="card-footer-action">
+            <button
+              type="button"
+              className="card-action-btn"
+              onClick={onNavigateToReceipts}
+            >
+              <span>Scan Bill</span>
               <ArrowRight className="tiny-icon" />
             </button>
           </div>

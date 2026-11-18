@@ -19,6 +19,13 @@
     "security:audit": "npm audit --omit=dev"
   },
   "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/camera": "8.2.6",
+    "@capacitor/cli": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/device": "8.0.3",
+    "@capacitor/ios": "8.6.2",
+    "@capacitor/share": "8.0.3",
     "@clerk/backend": "3.29.0",
     "@clerk/react": "6.18.8",
     "@neondatabase/serverless": "1.2.1",
