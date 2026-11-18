@@ -2817,23 +2817,26 @@ input:checked + .slider:before { transform: translateX(22px); }
 /* ==============================================================================
    REDESIGNED 4-COLUMN FOOTER
    ============================================================================== */
+.footer-public-redesigned,
 .footer-redesigned {
-  background: #FFFFFF;
-  border-top: 1px solid var(--color-border);
+  background: #F9FBF9;
+  border-top: 1px solid #E3ECE6;
   padding: 56px 0 32px;
   margin-top: auto;
+  color: var(--color-ink, #0E2519);
+  font-family: var(--font-body, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
 }
 
 .footer-container {
-  max-width: 1240px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 24px;
 }
 
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1.2fr;
-  gap: 36px;
+  grid-template-columns: 2fr 1.2fr 1.1fr 1.5fr;
+  gap: 40px;
   margin-bottom: 40px;
 }
 
@@ -2842,136 +2845,345 @@ input:checked + .slider:before { transform: translateX(22px); }
   flex-direction: column;
 }
 
+.footer-column.brand-column {
+  max-width: 360px;
+}
+
 .footer-brand-link {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
   margin-bottom: 14px;
+}
+
+.brand-text-block {
+  display: flex;
+  flex-direction: column;
 }
 
 .footer-brand-name {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 20px;
-  color: var(--color-brand-green);
+  font-size: 21px;
+  color: var(--color-brand-green, #075A35);
+  letter-spacing: -0.3px;
+  line-height: 1.1;
 }
 
 .footer-brand-tagline {
-  font-size: 11px;
-  color: var(--color-muted);
+  font-size: 11.5px;
+  color: #6C7F74;
+  margin-top: 2px;
+  font-weight: 500;
 }
 
 .footer-brand-desc {
   font-size: 13px;
-  color: var(--color-muted);
+  color: #55695E;
   line-height: 1.6;
   margin-bottom: 16px;
 }
 
-.developer-badge {
+.footer-trust-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
-  background: #F5FAF5;
-  border: 1px solid #DCE8DE;
-  border-radius: var(--radius-pill);
-  font-size: 12px;
-  color: var(--color-brand-green);
-  font-weight: 500;
+  padding: 6px 12px;
+  background: #EDF7F1;
+  border: 1px solid #D2E7DB;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #075A35;
   width: fit-content;
 }
 
-.dev-icon {
+.trust-icon {
   width: 14px;
   height: 14px;
+  flex-shrink: 0;
+  color: #075A35;
 }
 
 .footer-col-title {
   font-family: var(--font-display);
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--color-ink);
-  letter-spacing: -0.2px;
+  color: #122B1E;
   margin-bottom: 16px;
+  text-transform: uppercase;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.footer-col-text {
+  font-size: 13px;
+  color: #55695E;
+  line-height: 1.5;
+  margin-bottom: 14px;
 }
 
 .footer-link-list {
   list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .footer-link-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: 13px;
-  color: var(--color-muted);
-  background: transparent;
-  border: none;
+  color: #55695E;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
   cursor: pointer;
-  padding: 0;
+  padding: 0 !important;
+  margin: 0 !important;
   text-align: left;
-  transition: all 0.12s ease;
+  transition: all 0.15s ease;
+  font-family: inherit;
 }
 
 .footer-link-btn:hover {
-  color: var(--color-brand-green);
+  color: #075A35;
   transform: translateX(2px);
 }
 
 .footer-link-icon {
   width: 14px;
   height: 14px;
+  flex-shrink: 0;
+  color: #7A9184;
+  transition: color 0.15s ease;
 }
 
-.footer-static-note {
+.footer-link-btn:hover .footer-link-icon {
+  color: #075A35;
+}
+
+.footer-auth-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.footer-btn-signin {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: #7B8A82;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: #FFFFFF;
+  border: 1px solid #D5E1D9 !important;
+  border-radius: 9999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0E2519;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.note-icon {
-  width: 12px;
-  height: 12px;
+.footer-btn-signin:hover {
+  background: #F4F8F5;
+  border-color: #075A35 !important;
+  color: #075A35;
+  transform: translateY(-1px);
 }
 
-.footer-divider {
-  height: 1px;
-  background: var(--color-border);
-  margin-bottom: 24px;
+.footer-btn-signup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #075A35 0%, #06452B 100%);
+  border: 1px solid transparent !important;
+  border-radius: 9999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(7, 90, 53, 0.2);
 }
 
-.footer-bottom {
+.footer-btn-signup:hover {
+  background: linear-gradient(135deg, #096F42 0%, #075A35 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(7, 90, 53, 0.3);
+}
+
+.footer-btn-signin .btn-icon,
+.footer-btn-signup .btn-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.footer-bottom-bar {
+  border-top: 1px solid #E3ECE6;
+  padding-top: 24px;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12.5px;
+  color: #6C7F74;
 }
 
-.footer-disclaimer {
+.footer-copyright-wrap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.footer-copyright-text {
+  margin: 0;
+  color: #6C7F74;
+}
+
+.footer-dev-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #43554B;
   font-size: 12px;
-  color: var(--color-muted);
-  line-height: 1.6;
 }
 
-.footer-bottom-meta {
+.dev-name {
+  color: #075A35;
+  font-weight: 700;
+}
+
+.footer-bottom-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-sub-link {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 12.5px;
+  color: #55695E;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.footer-sub-link:hover {
+  color: #075A35;
+  text-decoration: underline;
+}
+
+.dot-divider {
+  color: #B5C5BC;
+  font-size: 10px;
+  user-select: none;
+}
+
+/* ==============================================================================
+   AUTHENTICATED WORKSPACE COMPACT FOOTER
+   ============================================================================== */
+.footer-auth-compact {
+  background: #FFFFFF;
+  border-top: 1px solid #E8EFEA;
+  padding: 14px 24px;
+  margin-top: auto;
+  font-size: 12px;
+  color: #6C7F74;
+  font-family: var(--font-body, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+.auth-footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  font-size: 12px;
-  color: var(--color-muted);
 }
 
-.footer-principles {
-  font-weight: 600;
-  color: var(--color-brand-green);
+.auth-footer-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.auth-footer-brand {
+  font-weight: 700;
+  color: #075A35;
+  font-family: var(--font-display);
+  font-size: 13px;
+}
+
+.auth-footer-sep {
+  color: #C1D0C7;
+  font-size: 10px;
+  user-select: none;
+}
+
+.auth-footer-copy {
+  color: #6C7F74;
+}
+
+.auth-footer-dev {
+  color: #43554B;
+}
+
+.auth-footer-dev strong {
+  color: #075A35;
+}
+
+.auth-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 12px;
+  color: #55695E;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.auth-footer-link:hover {
+  color: #075A35;
+}
+
+.auth-footer-link .tiny-icon {
+  width: 13px;
+  height: 13px;
+  color: #7A9184;
+}
+
+.auth-footer-link:hover .tiny-icon {
+  color: #075A35;
 }
 
 /* ==============================================================================

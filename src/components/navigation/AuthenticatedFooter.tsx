@@ -18,12 +18,14 @@ export const AuthenticatedFooter: React.FC<AuthenticatedFooterProps> = ({ onSele
   return (
     <footer className="footer-auth-compact" role="contentinfo" aria-label="Application Workspace Footer">
       <div className="auth-footer-container">
-        {/* Left: Brand & Copyright */}
+        {/* Left: Brand & Copyright & Developer */}
         <div className="auth-footer-left">
           <FoodCueLogo size={20} />
           <span className="auth-footer-brand">FoodCue</span>
           <span className="auth-footer-sep">•</span>
           <span className="auth-footer-copy">&copy; {currentYear} FoodCue. All rights reserved.</span>
+          <span className="auth-footer-sep">•</span>
+          <span className="auth-footer-dev">Developed by <strong>Parth Ahuja</strong></span>
         </div>
 
         {/* Right: Utility & Legal Links */}

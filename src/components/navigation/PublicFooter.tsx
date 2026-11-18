@@ -158,11 +158,17 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onSelectTab }) => {
           </div>
         </div>
 
-        {/* Bottom Bar: Clean Copyright */}
+        {/* Bottom Bar: Clean Copyright & Developer Credit */}
         <div className="footer-bottom-bar">
-          <p className="footer-copyright-text">
-            &copy; {currentYear} FoodCue. All rights reserved.
-          </p>
+          <div className="footer-copyright-wrap">
+            <p className="footer-copyright-text">
+              &copy; {currentYear} FoodCue. All rights reserved.
+            </p>
+            <span className="dot-divider">•</span>
+            <span className="footer-dev-credit">
+              Developed by <strong className="dev-name">Parth Ahuja</strong>
+            </span>
+          </div>
           <div className="footer-bottom-links">
             <button
               type="button"
