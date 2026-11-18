@@ -57,10 +57,20 @@ export default async function handler(
       }>()) ?? {};
 
       // 1. Upsert profile if provided
-      if (body.profile && body.profile.fullName) {
+      if (body.profile) {
+        const existing = await profileRepository.findByClerkUserId(clerkUserId);
+        const fullName = body.profile.fullName?.trim() || existing?.fullName || "FoodCue Member";
         await profileRepository.upsertProfile(clerkUserId, {
-          ...body.profile,
-          onboardingStatus: body.onboardingStatus || body.profile.onboardingStatus
+          fullName,
+          profileImageUrl: body.profile.profileImageUrl,
+          age: body.profile.age,
+          gender: body.profile.gender,
+          country: body.profile.country,
+          state: body.profile.state,
+          city: body.profile.city,
+          preferredLanguage: body.profile.preferredLanguage,
+          timezone: body.profile.timezone,
+          onboardingStatus: body.onboardingStatus || body.profile.onboardingStatus || existing?.onboardingStatus
         });
       } else if (body.onboardingStatus) {
         await profileRepository.updateOnboardingStatus(clerkUserId, body.onboardingStatus);

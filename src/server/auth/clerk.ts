@@ -97,3 +97,22 @@ export async function fetchClerkUserAttributes(
     };
   }
 }
+
+/**
+ * Permanently removes a user identity from Clerk via the backend API.
+ */
+export async function deleteClerkUser(
+  clerkUserId: string,
+  secretKeyOverride?: string
+): Promise<boolean> {
+  const secretKey = secretKeyOverride ?? getBackendConfig().CLERK_SECRET_KEY;
+  const client = createClerkClient({ secretKey });
+
+  try {
+    await client.users.deleteUser(clerkUserId);
+    return true;
+  } catch (error) {
+    console.warn(`[Clerk] Could not delete user ${clerkUserId}:`, error);
+    return false;
+  }
+}

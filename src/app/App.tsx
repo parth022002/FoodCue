@@ -310,8 +310,12 @@ export function App() {
         {/* Tab 8: Profile, Allergies & Settings */}
         {tab === "profile" && (
           <ProfileView
-            onProfileChange={(prof) => setCalmModeActive(prof.calmMode)}
+            apiClient={apiClient}
+            currentHousehold={activeHousehold}
+            onNavigateToDashboard={() => setTab("home")}
+            onNavigateToHousehold={() => setTab("household")}
             onNavigateToPrivacy={() => setTab("privacy")}
+            onProfileChange={(prof) => setCalmModeActive(prof.calmMode)}
           />
         )}
 

@@ -4257,14 +4257,14 @@ var ProfileRepository = class {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
       ON CONFLICT (clerk_user_id) DO UPDATE SET
         full_name = EXCLUDED.full_name,
-        profile_image_url = COALESCE(EXCLUDED.profile_image_url, user_profiles.profile_image_url),
-        age = COALESCE(EXCLUDED.age, user_profiles.age),
-        gender = COALESCE(EXCLUDED.gender, user_profiles.gender),
-        country = COALESCE(EXCLUDED.country, user_profiles.country),
-        state = COALESCE(EXCLUDED.state, user_profiles.state),
-        city = COALESCE(EXCLUDED.city, user_profiles.city),
-        preferred_language = COALESCE(EXCLUDED.preferred_language, user_profiles.preferred_language),
-        timezone = COALESCE(EXCLUDED.timezone, user_profiles.timezone),
+        profile_image_url = EXCLUDED.profile_image_url,
+        age = EXCLUDED.age,
+        gender = EXCLUDED.gender,
+        country = COALESCE(NULLIF(EXCLUDED.country, ''), user_profiles.country, 'India'),
+        state = EXCLUDED.state,
+        city = EXCLUDED.city,
+        preferred_language = COALESCE(NULLIF(EXCLUDED.preferred_language, ''), user_profiles.preferred_language, 'en'),
+        timezone = COALESCE(NULLIF(EXCLUDED.timezone, ''), user_profiles.timezone, 'Asia/Kolkata'),
         onboarding_status = COALESCE(EXCLUDED.onboarding_status, user_profiles.onboarding_status),
         updated_at = CURRENT_TIMESTAMP
       RETURNING *;
@@ -4430,6 +4430,24 @@ var ProfileRepository = class {
       allergyStatus,
       onboardingStatus: profile?.onboardingStatus || "PROFILE_PENDING"
     };
+  }
+  /**
+   * Permanently and completely deletes all personal user data:
+   * profiles, preferences, allergies, status, and cloud pantry/sync records.
+   */
+  async deleteUserProfileAndPersonalData(clerkUserId) {
+    await query(`DELETE FROM user_profiles WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM user_food_preferences WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM user_allergies WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM user_allergy_status WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM user_household_sharing_preferences WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_pantry_events WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_pantry_items WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_confirmed_labels WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_shopping_list WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_reminders WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM sync_operations WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM sync_devices WHERE clerk_user_id = $1;`, [clerkUserId]);
   }
   mapRowToProfile(row) {
     return {
@@ -4620,10 +4638,20 @@ async function handler(req, res) {
     }
     if (method === "POST" || method === "PUT" || method === "PATCH") {
       const body = await json() ?? {};
-      if (body.profile && body.profile.fullName) {
+      if (body.profile) {
+        const existing = await profileRepository.findByClerkUserId(clerkUserId);
+        const fullName = body.profile.fullName?.trim() || existing?.fullName || "FoodCue Member";
         await profileRepository.upsertProfile(clerkUserId, {
-          ...body.profile,
-          onboardingStatus: body.onboardingStatus || body.profile.onboardingStatus
+          fullName,
+          profileImageUrl: body.profile.profileImageUrl,
+          age: body.profile.age,
+          gender: body.profile.gender,
+          country: body.profile.country,
+          state: body.profile.state,
+          city: body.profile.city,
+          preferredLanguage: body.profile.preferredLanguage,
+          timezone: body.profile.timezone,
+          onboardingStatus: body.onboardingStatus || body.profile.onboardingStatus || existing?.onboardingStatus
         });
       } else if (body.onboardingStatus) {
         await profileRepository.updateOnboardingStatus(clerkUserId, body.onboardingStatus);

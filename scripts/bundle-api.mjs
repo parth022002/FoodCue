@@ -54,6 +54,10 @@ const targets = [
   {
     entry: "src/server/endpoints/sharing.ts",
     outfile: "api/sharing/index.js"
+  },
+  {
+    entry: "src/server/endpoints/accountDelete.ts",
+    outfile: "api/account/delete.js"
   }
 ];
 

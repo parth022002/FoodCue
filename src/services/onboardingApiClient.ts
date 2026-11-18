@@ -251,4 +251,22 @@ export class OnboardingApiClient {
 
     return res.ok;
   }
+
+  /**
+   * Permanently deletes user account, profile, and personal records
+   */
+  async deleteAccount(): Promise<{ success: boolean; message: string }> {
+    const headers = await this.getAuthHeaders();
+    const res = await fetch("/api/account/delete", {
+      method: "POST",
+      headers
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to delete account: HTTP ${res.status}`);
+    }
+
+    return res.json();
+  }
 }

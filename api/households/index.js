@@ -4581,6 +4581,106 @@ var HouseholdRepository = class {
     );
   }
   /**
+   * Checks if a user is an owner of any active household that has other active members.
+   * If yes, deletion of the user account is blocked until ownership is transferred or household dissolved.
+   */
+  async checkOwnershipConstraintsBeforeDeletion(clerkUserId) {
+    const ownedHouseholds = await query(
+      `SELECT id, name FROM households WHERE owner_clerk_user_id = $1 AND status = 'active';`,
+      [clerkUserId]
+    );
+    const blocking = [];
+    for (const hh of ownedHouseholds) {
+      const otherMembers = await query(
+        `SELECT COUNT(*) as count FROM household_members WHERE household_id = $1 AND clerk_user_id != $2 AND membership_status = 'active';`,
+        [hh.id, clerkUserId]
+      );
+      if (parseInt(otherMembers[0]?.count || "0", 10) > 0) {
+        blocking.push(hh.name);
+      }
+    }
+    return {
+      canDelete: blocking.length === 0,
+      blockingHouseholds: blocking
+    };
+  }
+  /**
+   * Allows a user to leave a household.
+   * If the user is the owner and other members exist, throws error requiring ownership transfer.
+   */
+  async leaveHousehold(householdId, clerkUserId) {
+    const role = await this.getMemberRole(householdId, clerkUserId);
+    if (!role) {
+      throw new NotFoundError("You are not an active member of this household.");
+    }
+    if (role === "owner") {
+      const otherMembers = await query(
+        `SELECT COUNT(*) as count FROM household_members WHERE household_id = $1 AND clerk_user_id != $2 AND membership_status = 'active';`,
+        [householdId, clerkUserId]
+      );
+      if (parseInt(otherMembers[0]?.count || "0", 10) > 0) {
+        throw new ForbiddenError(
+          "As the household owner, you cannot leave while other active members remain. Please transfer ownership or dissolve the household."
+        );
+      }
+      await query(`DELETE FROM households WHERE id = $1;`, [householdId]);
+      return true;
+    }
+    await query(`DELETE FROM household_members WHERE household_id = $1 AND clerk_user_id = $2;`, [
+      householdId,
+      clerkUserId
+    ]);
+    return true;
+  }
+  /**
+   * Removes a member from a household (authorized for owner or admin).
+   */
+  async removeMember(householdId, memberClerkUserId, requestingClerkUserId) {
+    const requesterRole = await this.getMemberRole(householdId, requestingClerkUserId);
+    if (requesterRole !== "owner" && requesterRole !== "admin") {
+      throw new ForbiddenError("Only household owners and admins can remove members.");
+    }
+    const targetRole = await this.getMemberRole(householdId, memberClerkUserId);
+    if (!targetRole) {
+      throw new NotFoundError("Member not found in this household.");
+    }
+    if (targetRole === "owner") {
+      throw new ForbiddenError("The household owner cannot be removed.");
+    }
+    if (requesterRole === "admin" && targetRole === "admin" && memberClerkUserId !== requestingClerkUserId) {
+      throw new ForbiddenError("Admins cannot remove other admins. Only the owner can remove admins.");
+    }
+    await query(`DELETE FROM household_members WHERE household_id = $1 AND clerk_user_id = $2;`, [
+      householdId,
+      memberClerkUserId
+    ]);
+    return true;
+  }
+  /**
+   * Cleans up all household memberships, sole-owned households, and issued invitations for account deletion.
+   */
+  async cleanupUserHouseholdMemberships(clerkUserId) {
+    const ownedHouseholds = await query(
+      `SELECT id FROM households WHERE owner_clerk_user_id = $1;`,
+      [clerkUserId]
+    );
+    for (const hh of ownedHouseholds) {
+      const otherMembers = await query(
+        `SELECT COUNT(*) as count FROM household_members WHERE household_id = $1 AND clerk_user_id != $2;`,
+        [hh.id, clerkUserId]
+      );
+      if (parseInt(otherMembers[0]?.count || "0", 10) === 0) {
+        await query(`DELETE FROM households WHERE id = $1;`, [hh.id]);
+      }
+    }
+    await query(`DELETE FROM household_members WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(
+      `UPDATE household_invitations SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP WHERE invited_by_clerk_user_id = $1 AND status = 'pending';`,
+      [clerkUserId]
+    );
+    await query(`DELETE FROM user_household_sharing_preferences WHERE clerk_user_id = $1;`, [clerkUserId]);
+  }
+  /**
    * Retrieves sharing preferences for a user in a household
    */
   async getSharingPreferences(householdId, clerkUserId) {
@@ -4668,14 +4768,14 @@ var ProfileRepository = class {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
       ON CONFLICT (clerk_user_id) DO UPDATE SET
         full_name = EXCLUDED.full_name,
-        profile_image_url = COALESCE(EXCLUDED.profile_image_url, user_profiles.profile_image_url),
-        age = COALESCE(EXCLUDED.age, user_profiles.age),
-        gender = COALESCE(EXCLUDED.gender, user_profiles.gender),
-        country = COALESCE(EXCLUDED.country, user_profiles.country),
-        state = COALESCE(EXCLUDED.state, user_profiles.state),
-        city = COALESCE(EXCLUDED.city, user_profiles.city),
-        preferred_language = COALESCE(EXCLUDED.preferred_language, user_profiles.preferred_language),
-        timezone = COALESCE(EXCLUDED.timezone, user_profiles.timezone),
+        profile_image_url = EXCLUDED.profile_image_url,
+        age = EXCLUDED.age,
+        gender = EXCLUDED.gender,
+        country = COALESCE(NULLIF(EXCLUDED.country, ''), user_profiles.country, 'India'),
+        state = EXCLUDED.state,
+        city = EXCLUDED.city,
+        preferred_language = COALESCE(NULLIF(EXCLUDED.preferred_language, ''), user_profiles.preferred_language, 'en'),
+        timezone = COALESCE(NULLIF(EXCLUDED.timezone, ''), user_profiles.timezone, 'Asia/Kolkata'),
         onboarding_status = COALESCE(EXCLUDED.onboarding_status, user_profiles.onboarding_status),
         updated_at = CURRENT_TIMESTAMP
       RETURNING *;
@@ -4841,6 +4941,24 @@ var ProfileRepository = class {
       allergyStatus,
       onboardingStatus: profile?.onboardingStatus || "PROFILE_PENDING"
     };
+  }
+  /**
+   * Permanently and completely deletes all personal user data:
+   * profiles, preferences, allergies, status, and cloud pantry/sync records.
+   */
+  async deleteUserProfileAndPersonalData(clerkUserId) {
+    await query(`DELETE FROM user_profiles WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM user_food_preferences WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM user_allergies WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM user_allergy_status WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM user_household_sharing_preferences WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_pantry_events WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_pantry_items WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_confirmed_labels WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_shopping_list WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM foodcue_reminders WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM sync_operations WHERE clerk_user_id = $1;`, [clerkUserId]);
+    await query(`DELETE FROM sync_devices WHERE clerk_user_id = $1;`, [clerkUserId]);
   }
   mapRowToProfile(row) {
     return {

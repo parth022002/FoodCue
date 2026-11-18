@@ -475,6 +475,137 @@ export class HouseholdRepository {
   }
 
   /**
+   * Checks if a user is an owner of any active household that has other active members.
+   * If yes, deletion of the user account is blocked until ownership is transferred or household dissolved.
+   */
+  async checkOwnershipConstraintsBeforeDeletion(clerkUserId: string): Promise<{
+    canDelete: boolean;
+    blockingHouseholds: string[];
+  }> {
+    const ownedHouseholds = await query<{ id: string; name: string }>(
+      `SELECT id, name FROM households WHERE owner_clerk_user_id = $1 AND status = 'active';`,
+      [clerkUserId]
+    );
+
+    const blocking: string[] = [];
+    for (const hh of ownedHouseholds) {
+      const otherMembers = await query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM household_members WHERE household_id = $1 AND clerk_user_id != $2 AND membership_status = 'active';`,
+        [hh.id, clerkUserId]
+      );
+      if (parseInt(otherMembers[0]?.count || "0", 10) > 0) {
+        blocking.push(hh.name);
+      }
+    }
+
+    return {
+      canDelete: blocking.length === 0,
+      blockingHouseholds: blocking
+    };
+  }
+
+  /**
+   * Allows a user to leave a household.
+   * If the user is the owner and other members exist, throws error requiring ownership transfer.
+   */
+  async leaveHousehold(householdId: string, clerkUserId: string): Promise<boolean> {
+    const role = await this.getMemberRole(householdId, clerkUserId);
+    if (!role) {
+      throw new NotFoundError("You are not an active member of this household.");
+    }
+
+    if (role === "owner") {
+      const otherMembers = await query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM household_members WHERE household_id = $1 AND clerk_user_id != $2 AND membership_status = 'active';`,
+        [householdId, clerkUserId]
+      );
+      if (parseInt(otherMembers[0]?.count || "0", 10) > 0) {
+        throw new ForbiddenError(
+          "As the household owner, you cannot leave while other active members remain. Please transfer ownership or dissolve the household."
+        );
+      }
+      // If sole member and owner, delete the household
+      await query(`DELETE FROM households WHERE id = $1;`, [householdId]);
+      return true;
+    }
+
+    // Regular member: remove from household_members
+    await query(`DELETE FROM household_members WHERE household_id = $1 AND clerk_user_id = $2;`, [
+      householdId,
+      clerkUserId
+    ]);
+    return true;
+  }
+
+  /**
+   * Removes a member from a household (authorized for owner or admin).
+   */
+  async removeMember(
+    householdId: string,
+    memberClerkUserId: string,
+    requestingClerkUserId: string
+  ): Promise<boolean> {
+    const requesterRole = await this.getMemberRole(householdId, requestingClerkUserId);
+    if (requesterRole !== "owner" && requesterRole !== "admin") {
+      throw new ForbiddenError("Only household owners and admins can remove members.");
+    }
+
+    const targetRole = await this.getMemberRole(householdId, memberClerkUserId);
+    if (!targetRole) {
+      throw new NotFoundError("Member not found in this household.");
+    }
+
+    if (targetRole === "owner") {
+      throw new ForbiddenError("The household owner cannot be removed.");
+    }
+
+    if (requesterRole === "admin" && targetRole === "admin" && memberClerkUserId !== requestingClerkUserId) {
+      throw new ForbiddenError("Admins cannot remove other admins. Only the owner can remove admins.");
+    }
+
+    await query(`DELETE FROM household_members WHERE household_id = $1 AND clerk_user_id = $2;`, [
+      householdId,
+      memberClerkUserId
+    ]);
+
+    return true;
+  }
+
+  /**
+   * Cleans up all household memberships, sole-owned households, and issued invitations for account deletion.
+   */
+  async cleanupUserHouseholdMemberships(clerkUserId: string): Promise<void> {
+    // 1. Delete households where user is sole member and owner
+    const ownedHouseholds = await query<{ id: string }>(
+      `SELECT id FROM households WHERE owner_clerk_user_id = $1;`,
+      [clerkUserId]
+    );
+
+    for (const hh of ownedHouseholds) {
+      const otherMembers = await query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM household_members WHERE household_id = $1 AND clerk_user_id != $2;`,
+        [hh.id, clerkUserId]
+      );
+      if (parseInt(otherMembers[0]?.count || "0", 10) === 0) {
+        // Safe to dissolve
+        await query(`DELETE FROM households WHERE id = $1;`, [hh.id]);
+      }
+    }
+
+    // 2. Remove user from all other household_members
+    await query(`DELETE FROM household_members WHERE clerk_user_id = $1;`, [clerkUserId]);
+
+    // 3. Revoke any pending invitations issued by user
+    await query(
+      `UPDATE household_invitations SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP WHERE invited_by_clerk_user_id = $1 AND status = 'pending';`,
+      [clerkUserId]
+    );
+
+    // 4. Delete user sharing preferences
+    await query(`DELETE FROM user_household_sharing_preferences WHERE clerk_user_id = $1;`, [clerkUserId]);
+  }
+
+  /**
    * Retrieves sharing preferences for a user in a household
    */
   async getSharingPreferences(
