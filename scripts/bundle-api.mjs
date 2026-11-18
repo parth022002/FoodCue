@@ -34,6 +34,26 @@ const targets = [
   {
     entry: "src/server/endpoints/notificationsSubscribe.ts",
     outfile: "api/notifications/subscribe.js"
+  },
+  {
+    entry: "src/server/endpoints/profile.ts",
+    outfile: "api/profile/index.js"
+  },
+  {
+    entry: "src/server/endpoints/households.ts",
+    outfile: "api/households/index.js"
+  },
+  {
+    entry: "src/server/endpoints/householdDetails.ts",
+    outfile: "api/households/details.js"
+  },
+  {
+    entry: "src/server/endpoints/invitations.ts",
+    outfile: "api/invitations/index.js"
+  },
+  {
+    entry: "src/server/endpoints/sharing.ts",
+    outfile: "api/sharing/index.js"
   }
 ];
 

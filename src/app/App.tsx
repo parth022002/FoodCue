@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth, useUser } from "@clerk/react";
 import { Navbar } from "../components/navigation/Navbar";
 import { Footer } from "../components/navigation/Footer";
@@ -13,8 +13,14 @@ import { Reminders } from "../features/reminders/Reminders";
 import { ShoppingList } from "../features/shopping/ShoppingList";
 import { ProfileView } from "../features/profile/ProfileView";
 import { Privacy } from "../features/privacy/Privacy";
+import { HouseholdManager } from "../features/household/HouseholdManager";
+import { OnboardingWizard } from "../features/onboarding/OnboardingWizard";
+import { HouseholdOnboardingModal } from "../features/onboarding/HouseholdOnboardingModal";
+import { InvitationAcceptView } from "../features/household/InvitationAcceptView";
+import { OnboardingApiClient } from "../services/onboardingApiClient";
 import { syncCoordinator } from "../sync/engine/syncCoordinator";
 import type { VerifiedFoodProduct } from "../domain/entities/catalogData";
+import type { HouseholdRecord } from "../server/database/repositories/household.repository";
 import { Search } from "lucide-react";
 
 export type ActiveTab =
@@ -26,7 +32,8 @@ export type ActiveTab =
   | "shopping"
   | "catalog"
   | "profile"
-  | "privacy";
+  | "privacy"
+  | "household";
 
 function CloudSyncBridge() {
   const { getToken, isSignedIn } = useAuth();
@@ -46,6 +53,37 @@ export function App() {
   const [calmModeActive, setCalmModeActive] = useState<boolean>(false);
 
   const { isSignedIn, user } = useUser();
+  const { getToken } = useAuth();
+
+  // Create API Client with authenticated token getter
+  const apiClient = useMemo(() => {
+    return new OnboardingApiClient(async () => {
+      try {
+        return (await getToken()) ?? null;
+      } catch {
+        return null;
+      }
+    });
+  }, [getToken]);
+
+  // Onboarding state
+  const [onboardingStage, setOnboardingStage] = useState<"checking" | "wizard" | "household" | "completed">("completed");
+  const [activeHousehold, setActiveHousehold] = useState<HouseholdRecord | null>(null);
+
+  // Invite Token URL Parameter
+  const [inviteToken, setInviteToken] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const qToken = params.get("invite");
+      if (qToken) return qToken;
+      if (window.location.pathname.startsWith("/invite/")) {
+        return window.location.pathname.replace("/invite/", "").trim();
+      }
+    } catch {
+      // fallback
+    }
+    return null;
+  });
 
   useEffect(() => {
     // Seed verified offline FMCG catalog in background without blocking UI
@@ -55,6 +93,46 @@ export function App() {
       });
     });
   }, []);
+
+  // Check onboarding status and active household when user signs in
+  useEffect(() => {
+    if (!isSignedIn) {
+      setOnboardingStage("completed");
+      return;
+    }
+
+    let mounted = true;
+
+    async function checkUserOnboarding() {
+      try {
+        const bundle = await apiClient.getProfile();
+        if (!mounted) return;
+
+        if (bundle.onboardingStatus === "PROFILE_PENDING") {
+          setOnboardingStage("wizard");
+        } else if (bundle.onboardingStatus === "PROFILE_COMPLETED" || bundle.onboardingStatus === "HOUSEHOLD_SETUP_PENDING") {
+          setOnboardingStage("household");
+        } else {
+          setOnboardingStage("completed");
+        }
+
+        // Fetch user households
+        const userHouseholds = await apiClient.listHouseholds();
+        if (mounted && userHouseholds.length > 0) {
+          setActiveHousehold(userHouseholds[0] || null);
+        }
+      } catch {
+        // If server is temporarily unreachable or offline, default to completed to avoid blocking
+        if (mounted) setOnboardingStage("completed");
+      }
+    }
+
+    checkUserOnboarding();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isSignedIn, apiClient]);
 
   const hasClerkKey = Boolean(
     import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
@@ -83,12 +161,70 @@ export function App() {
         onSelectTab={setTab}
       />
 
+      {/* Direct Invitation Acceptance Modal (if ?invite=token in URL) */}
+      {inviteToken && (
+        <div className="modal-backdrop">
+          <div className="modal-dialog-large">
+            <InvitationAcceptView
+              token={inviteToken}
+              apiClient={apiClient}
+              onAccepted={(householdId) => {
+                setInviteToken(null);
+                // Clear URL query
+                window.history.replaceState({}, document.title, window.location.pathname);
+                apiClient.getHouseholdDetails(householdId).then((d) => {
+                  setActiveHousehold(d.household);
+                  setTab("household");
+                }).catch(() => {
+                  setTab("home");
+                });
+              }}
+              onCancel={() => {
+                setInviteToken(null);
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Stage 3: Personal Profile Creation Wizard */}
+      {isSignedIn && onboardingStage === "wizard" && (
+        <div className="modal-backdrop z-onboarding">
+          <OnboardingWizard
+            apiClient={apiClient}
+            initialName={user?.fullName || ""}
+            initialEmail={user?.primaryEmailAddress?.emailAddress || ""}
+            initialAvatar={user?.imageUrl}
+            onProfileCompleted={(_bundle) => {
+              setOnboardingStage("household");
+            }}
+          />
+        </div>
+      )}
+
+      {/* Stage 4: Household Creation & Invitation Onboarding Modal */}
+      {isSignedIn && onboardingStage === "household" && (
+        <HouseholdOnboardingModal
+          apiClient={apiClient}
+          onComplete={(createdHh) => {
+            if (createdHh) {
+              setActiveHousehold(createdHh);
+            }
+            setOnboardingStage("completed");
+            setTab("home");
+          }}
+        />
+      )}
+
       {/* Main Content Area */}
       <main className="main-content-layout" id="main-content">
         {/* Tab 1: Home (Guest Landing vs Authenticated Dashboard) */}
         {tab === "home" && (
           isSignedIn ? (
             <AuthenticatedDashboard
+              apiClient={apiClient}
+              currentHousehold={activeHousehold}
               onNavigateToScan={() => setTab("scan")}
               onNavigateToSearch={() => setTab("search")}
               onNavigateToKitchen={() => setTab("kitchen")}
@@ -96,6 +232,7 @@ export function App() {
               onNavigateToProfile={() => setTab("profile")}
               onNavigateToReminders={() => setTab("reminders")}
               onNavigateToShopping={() => setTab("shopping")}
+              onNavigateToHousehold={() => setTab("household")}
             />
           ) : (
             <GuestHome
@@ -170,7 +307,7 @@ export function App() {
           )
         )}
 
-        {/* Tab 8: Profile, Allergies, Household & Settings */}
+        {/* Tab 8: Profile, Allergies & Settings */}
         {tab === "profile" && (
           <ProfileView
             onProfileChange={(prof) => setCalmModeActive(prof.calmMode)}
@@ -181,6 +318,18 @@ export function App() {
         {/* Tab 9: Privacy & Local Data Management */}
         {tab === "privacy" && (
           <Privacy onDataRestored={() => setTab("kitchen")} />
+        )}
+
+        {/* Tab 10: Household Management & Shared Kitchen Workspace */}
+        {tab === "household" && (
+          <section className="panel" aria-labelledby="household-manager-heading">
+            <HouseholdManager
+              apiClient={apiClient}
+              currentHousehold={activeHousehold}
+              onSelectHousehold={(hh) => setActiveHousehold(hh)}
+              onClose={() => setTab("home")}
+            />
+          </section>
         )}
       </main>
 

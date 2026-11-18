@@ -97,16 +97,16 @@ describe("Homepage Redesign Views (Guest vs Authenticated)", () => {
       );
 
       // Greeting
-      expect(screen.getByText(/Welcome back,/i)).toBeInTheDocument();
+      expect(screen.getByText(/(Welcome back|Good (morning|afternoon|evening)),/i)).toBeInTheDocument();
       expect(screen.getByText("Aarav")).toBeInTheDocument();
 
       // Guard Bar
-      expect(screen.getByText(/Active Personal Guard:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Personal Kitchen Mode/i)).toBeInTheDocument();
 
       // Core Cards
       expect(screen.getByText("Kitchen Pantry Items")).toBeInTheDocument();
       expect(screen.getByText("Saved Catalogue Products")).toBeInTheDocument();
-      expect(screen.getByText("Urgent Expiry Reminders")).toBeInTheDocument();
+      expect(screen.getByText("Urgent Expiry Alerts")).toBeInTheDocument();
       expect(screen.getByText("Smart Shopping List")).toBeInTheDocument();
 
       // Action click

@@ -379,6 +379,16 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
                             type="button"
                             className="dropdown-item-btn"
                             role="menuitem"
+                            onClick={() => handleTabClick("household")}
+                          >
+                            <Users className="dropdown-item-icon text-indigo-600" />
+                            <span>Household Management & Sharing</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="dropdown-item-btn"
+                            role="menuitem"
                             onClick={() => handleTabClick("privacy")}
                           >
                             <Shield className="dropdown-item-icon" />
@@ -595,7 +605,16 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
                     onClick={() => handleTabClick("profile")}
                   >
                     <User className="mobile-item-icon" />
-                    <span>My Profile & Household</span>
+                    <span>My Profile & Preferences</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`mobile-nav-item ${activeTab === "household" ? "active" : ""}`}
+                    onClick={() => handleTabClick("household")}
+                  >
+                    <Users className="mobile-item-icon text-indigo-600" />
+                    <span>Household Management</span>
                   </button>
 
                   <div className="mobile-signout-wrapper">
