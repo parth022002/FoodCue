@@ -2,19 +2,10 @@
 android/
 ios/
 
-# Test suites & coverage
-test/
+# Test coverage & reports
 coverage/
 playwright-report/
 test-results/
-
-# Local reports & markdown documentation
-docs/
-*.md
-
-# Git & GitHub internals
-.git/
-.github/
 
 # Local environment secrets
 .env
