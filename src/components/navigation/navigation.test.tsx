@@ -56,6 +56,27 @@ describe("FoodCue Brand & Navigation Redesign", () => {
     expect(handleSelectTab).toHaveBeenCalledWith("kitchen");
   });
 
+  it("renders minimal public landing Navbar with ONLY logo, Sign In and Sign Up when on home as guest", () => {
+    const handleSelectTab = vi.fn();
+    render(<Navbar activeTab="home" onSelectTab={handleSelectTab} />);
+
+    // Brand and logo
+    expect(screen.getByText("FoodCue")).toBeInTheDocument();
+    expect(screen.getByText("Know your food. Manage your kitchen.")).toBeInTheDocument();
+
+    // Sign In & Sign Up buttons present
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign up/i })).toBeInTheDocument();
+
+    // No application-specific navigation links on the public landing page
+    expect(screen.queryByRole("button", { name: /smartscan/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /my kitchen/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reminders/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /shopping list/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /catalogue/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Stored on this device")).not.toBeInTheDocument();
+  });
+
   it("renders Footer with 4 columns, developer attribution and safety disclaimer", () => {
     const handleSelectTab = vi.fn();
     render(<Footer onSelectTab={handleSelectTab} />);

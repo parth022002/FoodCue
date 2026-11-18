@@ -3,7 +3,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { GuestHome } from "../../src/features/home/GuestHome";
 import { AuthenticatedDashboard } from "../../src/features/home/AuthenticatedDashboard";
 
-// Mock Clerk useUser hook
+// Mock Clerk useUser hook and auth buttons
 vi.mock("@clerk/react", () => ({
   useUser: () => ({
     user: {
@@ -12,7 +12,9 @@ vi.mock("@clerk/react", () => ({
       fullName: "Aarav Sharma"
     },
     isSignedIn: true
-  })
+  }),
+  SignInButton: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SignUpButton: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
 }));
 
 afterEach(() => {
@@ -47,6 +49,28 @@ describe("Homepage Redesign Views (Guest vs Authenticated)", () => {
       // How it Works section
       expect(screen.getByText("How FoodCue Works")).toBeInTheDocument();
       expect(screen.getByText("Clear Health Score")).toBeInTheDocument();
+
+      // Product Introduction section
+      expect(screen.getByText("A Smarter Way to Understand and Manage Your Food")).toBeInTheDocument();
+
+      // Features section
+      expect(screen.getByText("Complete Food & Kitchen Capabilities")).toBeInTheDocument();
+      expect(screen.getByText("Smart Food Scanning")).toBeInTheDocument();
+      expect(screen.getByText("Ingredient & Allergen Clarity")).toBeInTheDocument();
+
+      // Why FoodCue Section
+      expect(screen.getByText("Everything You Need to Manage Your Food, in One Place.")).toBeInTheDocument();
+
+      // Trust & Transparency
+      expect(screen.getByText("Trust, Transparency & Data Accuracy")).toBeInTheDocument();
+
+      // Final CTA
+      expect(screen.getByText("Take Control of Your Kitchen with FoodCue.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /create your free account/i })).toBeInTheDocument();
+
+      // Verification that no development age-range references (10 to 70) exist in rendered output
+      expect(screen.queryByText(/10 to 70/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/ages 10/i)).not.toBeInTheDocument();
     });
   });
 

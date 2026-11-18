@@ -98,6 +98,60 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
     userDisplayName[0]?.toUpperCase() ||
     "U";
 
+  // Public Landing Page Navbar (Guest on Home Tab):
+  // Clean, minimal navbar with ONLY Logo on left, and Sign In & Sign Up on right.
+  const isPublicLanding = !user && activeTab === "home";
+
+  if (isPublicLanding) {
+    return (
+      <header className="navbar-header public-landing-header" role="banner">
+        <div className="navbar-container public-landing-navbar-container">
+          {/* Left: Brand & Tagline */}
+          <a
+            className="navbar-brand"
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              handleTabClick("home");
+            }}
+            aria-label="FoodCue — Know your food. Manage your kitchen."
+          >
+            <FoodCueLogo size={36} />
+            <div className="brand-text-block">
+              <span className="brand-name">FoodCue</span>
+              <span className="brand-tagline">Know your food. Manage your kitchen.</span>
+            </div>
+          </a>
+
+          {/* Right: Only Sign In & Sign Up options */}
+          <div className="landing-navbar-auth-actions" aria-label="Account actions">
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                className="landing-nav-signin-btn"
+                aria-label="Sign In"
+              >
+                <LogIn className="auth-btn-icon" aria-hidden="true" />
+                <span>Sign In</span>
+              </button>
+            </SignInButton>
+
+            <SignUpButton mode="modal">
+              <button
+                type="button"
+                className="landing-nav-signup-btn"
+                aria-label="Sign Up"
+              >
+                <UserPlus className="auth-btn-icon" aria-hidden="true" />
+                <span>Sign Up</span>
+              </button>
+            </SignUpButton>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <>
       <header className="navbar-header" role="banner">
