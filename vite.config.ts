@@ -7,6 +7,7 @@ export default defineConfig({
   preview: { host: "127.0.0.1" },
   build: {
     sourcemap: false,
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -21,6 +22,9 @@ export default defineConfig({
           }
           if (id.includes("node_modules/@neondatabase")) {
             return "vendor-neon";
+          }
+          if (id.includes("node_modules/@sec-ant/zxing-wasm")) {
+            return "vendor-zxing";
           }
         }
       }
