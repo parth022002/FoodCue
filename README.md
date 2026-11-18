@@ -311,7 +311,7 @@ FoodCue/
 
 ### Prerequisites
 
-- **Node.js:** `Node.js >= 20.x` (Engine requirement: `26.x` compatible)
+- **Node.js:** `Node.js >= 20.x` (LTS 20.x or 22.x recommended)
 - **Package Manager:** `npm` (included with Node)
 - **Database:** Free [Neon](https://neon.tech) PostgreSQL account
 
